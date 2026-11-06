@@ -1,0 +1,107 @@
+# LCGridLayout
+
+给 **LiveContainer 3.8.0** 的宿主侧 UI 插件：把“我的应用”列表换成桌面式图标网格。
+
+**下载**：[Releases](https://github.com/Kan9e/LCGridLayout/releases) · **许可**：[AGPL-3.0](LICENSE)
+
+## 功能
+
+- 4 / 5 列切换，图标名称可显示或隐藏
+- 搜索应用、下拉刷新
+- 加锁应用显示锁标，点按后仍由 LiveContainer 弹原生解锁
+- 自定义背景：从系统相册选图（`PHPicker`，不需要相册权限），最长边压到 2200px 的 JPEG 存在插件自己的目录，重启保留，可随时移除
+- 顶部“恢复原生”（带回退图标）一键回到原生列表
+- “网格设置”里可切换列数、名称显隐、顶部间距（紧凑 / 宽松）、更换或移除背景、导出调试日志
+- 图标点击走 `livecontainer-launch?bundle-name=<文件夹名>`，加锁、JIT、容器选择仍由 LiveContainer 原生逻辑处理
+
+## 环境要求
+
+- LiveContainer **3.8.0**（版本号写死，其他版本会直接退出，不会乱盖 UI）
+- iOS 15+，arm64
+- 已导入 JIT-Less 证书（用于给 dylib 重签）
+
+## 安装（摘要）
+
+1. LiveContainer → **Tweaks** → 全局根目录 → **Import Tweak** 导入 `LCGridLayout_v9.dylib`
+2. 点 Tweaks 页的签名按钮，用当前证书重签
+3. Settings 底部连点版本号 5 次 → Developer Settings → 打开 **Load Tweaks to LiveContainer Itself**
+4. 完全退出 LiveContainer，重新打开
+
+细节、排错、回退和删除见 [docs/INSTALL.md](docs/INSTALL.md)。
+
+## 回退与删除
+
+1. 网格内点“恢复原生”，或“网格设置 → 恢复原生列表”
+2. 关掉 Developer Settings 里的宿主注入开关并重启，插件不再加载
+3. 把 dylib 改名成 `*.disabled`（上游 TweakLoader 会跳过）或直接在 Tweaks 页删除
+4. 可选：删除 `Library/Logs/LCGridLayout.log` 与 `Library/Application Support/LCGridLayout/`
+
+全程不需要修改 IPA。
+
+## 技术说明
+
+- **挂载方式**：在宿主的“我的应用”页上 `addChildViewController` 叠一层铺满宿主视图的覆盖层（`hitTest` 穿透），内容按安全区排版；标签栏毛玻璃下方也由覆盖层挡住。
+- **不 hook**：不 swizzle 任何方法，不抢 key window，不挂手势，因此能和 LCFloatingMenu 这类插件共存。
+- **发现宿主**：启动后前 1.2 秒按 30ms、之后按 0.1 秒轮询；启动动画期间（前台非活跃）就开始挂载，导航标题还没写入时也接受宿主页。
+- **图标**：首帧直接读 `.app` 内的 `AppIcon*.png`，之后用宿主自己的 `generateIconForBundleURL:style:hasBorder:` 逐个替换为主题图标，不阻塞主线程。
+- **日志**：`Library/Logs/LCGridLayout.log`，上限 128 KB，超出重写；设置里可一键导出。
+
+## 当前状态
+
+- v9 已在 iPhone（iOS 26）实测：冷启动挂载约 28–34 ms、切标签无闪烁、自定义背景持久化、图标启动正常
+- 未验证：iPad / 横屏、多任务并发、其他 iOS 版本、LiveContainer 3.8.0 之外的其他版本
+
+## 构建
+
+```bash
+bash scripts/build.sh    # 产物 dist/LCGridLayout_v<N>.dylib，完整日志 logs/build.log
+```
+
+脚本要求完整 Xcode（`/Applications/Xcode.app`）及其 iPhoneOS SDK，只在编译、签名校验、Mach-O 平台/架构/依赖检查全部通过后才复制产物；任一步失败即退出。
+
+## 版本与文件命名
+
+`VERSION` 文件里的序号决定产物文件名：`scripts/build.sh` 生成 `dist/LCGridLayout_v<N>.dylib`，并把 `dist/LCGridLayout.dylib` 更新为指向最新版的符号链接。运行日志会打印实际加载的文件名：
+
+```
+Host gate passed: LiveContainer 3.8.0; LCGridLayout_v9.dylib loaded; no method hooks installed
+```
+
+装到设备时 Tweaks 里只能保留一个 `LCGridLayout*`：多个副本会被同时加载。
+
+## 已知限制
+
+- 依赖 LiveContainer 3.8.0 的界面结构；换大版本后可能需要跟着改
+- 全局 Tweaks 只有 1 个条目时，3.8.0 上游的 `TweakLoader` 会跳过加载，需要至少两个条目
+- ad hoc 签名无效，必须在 LiveContainer 内用当前证书重签
+- iPad / 横屏下 4–5 列会明显留白（单元格宽度按屏宽均分）
+- `builtinSideStore` 这类虚拟应用没有 `.app` 文件夹，不会出现在网格
+- 网格按名称排序，不复用原生列表的自定义排序
+- 自定义背景固定叠 35% 黑色遮罩，暂不提供透明度调节
+
+## 变更记录
+
+- **v9**：启动后前 1.2 秒用 30ms 高频轮询（之后回落到 0.1s），把“原生列表闪一帧”的窗口压到一个帧周期（实测挂载 28–34 ms）
+- **v8**：补上「顶部间距：紧凑 / 宽松」设置项；启动动画期间就允许挂载，并在导航标题未写入时接受宿主页，修掉 1.5–1.7 秒才挂载的问题；日志增加 `First tick after N ms`
+- **v7**：顶部间距默认紧凑（减去约 44pt 幽灵大标题留白）；轮询改 0.1s；挂载日志附加耗时
+- **v6**：网格设置新增“导出调试日志”
+- **v5**：顶部精简为「恢复原生」+「网格设置」；修掉大标题收起后残留的大块空白；图标改为首帧占位、随后逐个生成
+- **v4**：产物按版本命名；新增自定义背景；抽出统一的隐藏/损坏判断
+- **v3**：轮询 1s → 0.15s；每次 tick 把覆盖层置顶；刷新保留图标缓存（修 1 秒卡顿）；设置显示应用计数
+- **v2**：覆盖层铺满宿主视图（修标签栏透出原生行）；切标签不再隐藏覆盖层（修闪原生列表）；加锁图标；启动失败提示
+- **v1**：首个可注入版本
+
+## 目录
+
+```
+Sources/LCGridLayout.m      插件源码
+scripts/build.sh            构建 + 校验 + 复制产物
+scripts/verify_macho.py     Mach-O 平台/架构/依赖校验
+docs/INSTALL.md             安装、使用、排错、回退与删除
+docs/TESTING.md             真机验收清单
+VERSION                     当前版本序号（决定产物文件名）
+```
+
+## 许可证
+
+[AGPL-3.0](LICENSE)

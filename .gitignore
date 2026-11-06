@@ -1,0 +1,13 @@
+# Build outputs
+build/
+dist/
+logs/
+
+# Local audit material (IPA extraction, upstream sources, symbols) — never publish
+audit/
+
+# Unrelated local experiment
+FloatingMenuLatency/
+
+# macOS
+.DS_Store
