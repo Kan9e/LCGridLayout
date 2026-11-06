@@ -6,8 +6,12 @@ logs/
 # Local audit material (IPA extraction, upstream sources, symbols) — never publish
 audit/
 
-# Unrelated local experiment
+# Unrelated local experiments / other work stream (never publish)
 FloatingMenuLatency/
+LiveContainer-reference/
+ShowMyTouches-*/
+SideHomeBar/
+*.pcm
 
 # macOS
 .DS_Store

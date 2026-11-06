@@ -12,6 +12,7 @@ static NSString *const LGColumns = @"LCGridLayout.columns";
 static NSString *const LGNames = @"LCGridLayout.showNames";
 static NSString *const LGNative = @"LCGridLayout.nativeList";
 static NSString *const LGCompactTop = @"LCGridLayout.compactTop";
+static NSString *const LGOrder = @"LCGridLayout.order";
 static CFTimeInterval LGStartTime;
 
 static id LGGet(id object, NSString *selector) {
@@ -104,11 +105,19 @@ static NSString *LGBackgroundPath(void) {
     return [dir URLByAppendingPathComponent:@"background.jpg"].path;
 }
 
+static NSUserDefaults *LGAppGroupDefaults(void) {
+    NSString *groupID = LGGet(NSClassFromString(@"LCSharedUtils"), @"appGroupID");
+    if (![groupID isKindOfClass:NSString.class] || groupID.length == 0) return nil;
+    return [[NSUserDefaults alloc] initWithSuiteName:groupID];
+}
+
 @interface LGEntry : NSObject
 @property(nonatomic, strong) NSURL *url;
 @property(nonatomic, copy) NSString *name;
 @property(nonatomic, copy) NSString *folder;
+@property(nonatomic, copy) NSString *bundleId;
 @property(nonatomic) BOOL locked;
+@property(nonatomic) BOOL shared;
 @end
 @implementation LGEntry
 @end
@@ -127,7 +136,9 @@ static NSArray<LGEntry *> *LGReadApps(void) {
     NSMutableSet *seenPaths = [NSMutableSet new];
     NSMutableSet *ambiguousFolders = [NSMutableSet new];
     NSMutableSet *seenFolders = [NSMutableSet new];
-    for (NSURL *root in roots) {
+    for (NSUInteger rootIndex = 0; rootIndex < roots.count; rootIndex++) {
+        NSURL *root = roots[rootIndex];
+        BOOL shared = rootIndex > 0;
         for (NSURL *url in [fm contentsOfDirectoryAtURL:root includingPropertiesForKeys:nil options:NSDirectoryEnumerationSkipsHiddenFiles error:nil]) {
             if (![url.pathExtension isEqual:@"app"] || [seenPaths containsObject:url.URLByResolvingSymlinksInPath.path]) continue;
             [seenPaths addObject:url.URLByResolvingSymlinksInPath.path];
@@ -144,6 +155,8 @@ static NSArray<LGEntry *> *LGReadApps(void) {
             LGEntry *entry = [LGEntry new];
             entry.url = url;
             entry.folder = url.lastPathComponent;
+            entry.bundleId = info[@"CFBundleIdentifier"];
+            entry.shared = shared;
             entry.locked = [meta[@"isLocked"] boolValue];
             entry.name = info[@"CFBundleDisplayName"] ?: info[@"CFBundleName"] ?: entry.folder.stringByDeletingPathExtension;
             if (![entry.name isKindOfClass:NSString.class]) entry.name = entry.folder;
@@ -157,7 +170,16 @@ static NSArray<LGEntry *> *LGReadApps(void) {
         return ![ambiguousFolders containsObject:entry.folder];
     }]];
     LGCountAmbiguous = beforeFilter - result.count;
+    NSArray<NSString *> *savedOrder = [NSUserDefaults.standardUserDefaults arrayForKey:LGOrder];
+    NSMutableDictionary<NSString *, NSNumber *> *rank = [NSMutableDictionary new];
+    for (NSString *folder in savedOrder) {
+        if ([folder isKindOfClass:NSString.class]) rank[folder] = @(rank.count);
+    }
     [result sortUsingComparator:^NSComparisonResult(LGEntry *a, LGEntry *b) {
+        NSNumber *rankA = rank[a.folder], *rankB = rank[b.folder];
+        if (rankA && rankB) return rankA.integerValue < rankB.integerValue ? NSOrderedAscending : NSOrderedDescending;
+        if (rankA) return NSOrderedAscending;
+        if (rankB) return NSOrderedDescending;
         return [a.name localizedStandardCompare:b.name];
     }];
     return result;
@@ -248,6 +270,10 @@ static UIImage *LGFastIcon(LGEntry *entry) {
 @property(nonatomic, strong) NSCache<NSString *, UIImage *> *icons;
 @property(nonatomic) BOOL nativeMode;
 @property(nonatomic) BOOL wasAway;
+@property(nonatomic) BOOL reorderMode;
+@property(nonatomic) BOOL dragging;
+@property(nonatomic, strong) UIButton *doneButton;
+@property(nonatomic, strong) UILongPressGestureRecognizer *dragGesture;
 @property(nonatomic) CGFloat lastTopInset;
 @property(nonatomic) UIEdgeInsets lastSafeInsets;
 @property(nonatomic, strong) NSMutableSet<NSString *> *pendingIcons;
@@ -327,6 +353,20 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     self.returnButton.configuration = config;
     [self.returnButton addTarget:self action:@selector(showGrid) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:self.returnButton];
+    UIButtonConfiguration *doneConfig = [UIButtonConfiguration filledButtonConfiguration];
+    doneConfig.title = @"完成";
+    doneConfig.image = [UIImage systemImageNamed:@"checkmark"];
+    doneConfig.imagePadding = 8;
+    doneConfig.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
+    self.doneButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.doneButton.configuration = doneConfig;
+    self.doneButton.hidden = YES;
+    [self.doneButton addTarget:self action:@selector(exitReorderMode) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:self.doneButton];
+    self.dragGesture = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleDrag:)];
+    self.dragGesture.minimumPressDuration = 0.35;
+    self.dragGesture.enabled = NO;
+    [self.collection addGestureRecognizer:self.dragGesture];
     self.nativeMode = [NSUserDefaults.standardUserDefaults boolForKey:LGNative];
     [self applyMode];
     [self loadBackground];
@@ -373,6 +413,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     BOOL resized = !CGSizeEqualToSize(self.collection.bounds.size, frame.size);
     self.collection.frame = frame;
     self.returnButton.frame = CGRectMake(MAX(8,w-150), MAX(0,h-safe.bottom-54), 138, 44);
+    self.doneButton.frame = CGRectMake(8, MAX(0,h-safe.bottom-54), 108, 44);
     if (resized) [self.collection.collectionViewLayout invalidateLayout];
 }
 - (void)applyMode {
@@ -461,6 +502,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     }
 }
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
+    if (self.reorderMode) return;
     LGEntry *entry = self.filtered[indexPath.item];
     if (LGEntryStateFor(entry.url) != LGEntryStateOK) { [self refresh]; return; }
     NSString *scheme = LGGet(NSClassFromString(@"LCUtils"), @"appUrlScheme");
@@ -568,6 +610,213 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     share.popoverPresentationController.sourceRect = self.bar.bounds;
     [self presentViewController:share animated:YES completion:nil];
 }
+
+#pragma mark - Context menu (hide / uninstall / reorder)
+
+- (UIContextMenuConfiguration *)collectionView:(UICollectionView *)collectionView
+        contextMenuConfigurationForItemAtIndexPath:(NSIndexPath *)indexPath
+                                             point:(CGPoint)point {
+    // While reordering, long-press is reserved for dragging.
+    if (self.reorderMode || indexPath.item >= (NSInteger)self.filtered.count) return nil;
+    LGEntry *entry = self.filtered[indexPath.item];
+    return [UIContextMenuConfiguration configurationWithIdentifier:nil previewProvider:nil actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggested) {
+        return [self menuForEntry:entry];
+    }];
+}
+- (UIMenu *)menuForEntry:(LGEntry *)entry {
+    __weak typeof(self) weakSelf = self;
+    UIAction *reorder = [UIAction actionWithTitle:@"重新排列" image:[UIImage systemImageNamed:@"arrow.up.arrow.down"] identifier:nil handler:^(UIAction *action) {
+        [weakSelf enterReorderMode];
+    }];
+    UIAction *hide = [UIAction actionWithTitle:@"隐藏" image:[UIImage systemImageNamed:@"eye.slash"] identifier:nil handler:^(UIAction *action) {
+        [weakSelf hideEntry:entry];
+    }];
+    NSMutableArray<UIMenuElement *> *actions = [NSMutableArray arrayWithObjects:reorder, hide, nil];
+    if (!entry.shared) {
+        UIAction *uninstall = [UIAction actionWithTitle:@"卸载" image:[UIImage systemImageNamed:@"trash"] identifier:nil handler:^(UIAction *action) {
+            [weakSelf confirmUninstallEntry:entry];
+        }];
+        uninstall.attributes = UIMenuElementAttributesDestructive;
+        [actions addObject:uninstall];
+    }
+    return [UIMenu menuWithTitle:entry.name children:actions];
+}
+
+- (void)presentAlert:(UIAlertController *)alert retries:(NSInteger)retries {
+    if (self.presentedViewController) {
+        if (retries <= 0) return;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self presentAlert:alert retries:retries - 1];
+        });
+        return;
+    }
+    [self presentViewController:alert animated:YES completion:nil];
+}
+- (void)showAlertTitle:(NSString *)title message:(NSString *)message {
+    if (self.presentedViewController) {
+        __weak typeof(self) weakSelf = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [weakSelf showAlertTitle:title message:message];
+        });
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)hideEntry:(LGEntry *)entry {
+    NSURL *metaURL = [entry.url URLByAppendingPathComponent:@"LCAppInfo.plist"];
+    NSMutableDictionary *meta = [[NSDictionary dictionaryWithContentsOfURL:metaURL] mutableCopy];
+    if (!meta) meta = [NSMutableDictionary new];
+    meta[@"isHidden"] = @YES;
+    NSData *data = [NSPropertyListSerialization dataWithPropertyList:meta format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
+    if (!data || ![data writeToURL:metaURL atomically:YES]) {
+        [self showAlertTitle:@"隐藏失败" message:@"无法写入应用元数据，请重试或改用原生列表。"];
+        return;
+    }
+    [self refresh];
+    [self showAlertTitle:@"已隐藏" message:@"已从网格中隐藏。建议完全退出并重新打开 LiveContainer，让原生列表同步。"];
+}
+
+- (NSArray<NSString *> *)containerFoldersForEntry:(LGEntry *)entry {
+    NSDictionary *meta = LGPlist([entry.url URLByAppendingPathComponent:@"LCAppInfo.plist"]);
+    NSMutableArray<NSString *> *folders = [NSMutableArray new];
+    for (NSDictionary *container in meta[@"LCContainers"]) {
+        NSString *folder = [container isKindOfClass:NSDictionary.class] ? container[@"folderName"] : nil;
+        if ([folder isKindOfClass:NSString.class] && folder.length) [folders addObject:folder];
+    }
+    return folders;
+}
+
+- (void)confirmUninstallEntry:(LGEntry *)entry {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:[NSString stringWithFormat:@"卸载「%@」？", entry.name]
+                                                                   message:@"将删除应用包，此操作不可撤销。"
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"卸载" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self askDeleteDataForEntry:entry];
+        });
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentAlert:alert retries:3];
+}
+
+- (void)askDeleteDataForEntry:(LGEntry *)entry {
+    NSArray<NSString *> *containers = [self containerFoldersForEntry:entry];
+    if (containers.count == 0) {
+        [self performUninstallEntry:entry deleteContainers:@[]];
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"是否删除应用数据？"
+                                                                   message:@"保留数据可以以后恢复；删除后不可找回。"
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"同时删除数据" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+        [self performUninstallEntry:entry deleteContainers:containers];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"保留数据" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        [self performUninstallEntry:entry deleteContainers:@[]];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentAlert:alert retries:3];
+}
+
+- (void)performUninstallEntry:(LGEntry *)entry deleteContainers:(NSArray<NSString *> *)containers {
+    NSError *error = nil;
+    if (![[NSFileManager defaultManager] removeItemAtURL:entry.url error:&error]) {
+        [self showAlertTitle:@"卸载失败" message:[error localizedDescription] ?: @"无法删除应用包。"];
+        return;
+    }
+    if (containers.count) {
+        NSURL *dataRoot = [[[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].lastObject URLByAppendingPathComponent:@"Data/Application"];
+        for (NSString *folder in containers) {
+            [[NSFileManager defaultManager] removeItemAtURL:[dataRoot URLByAppendingPathComponent:folder] error:nil];
+        }
+    }
+    NSMutableArray<NSString *> *order = [[[NSUserDefaults standardUserDefaults] arrayForKey:LGOrder] mutableCopy];
+    if (!order) order = [NSMutableArray new];
+    [order removeObject:entry.folder];
+    [[NSUserDefaults standardUserDefaults] setObject:order forKey:LGOrder];
+    [self refresh];
+    [self showAlertTitle:@"已卸载" message:@"应用包已删除。建议完全退出并重新打开 LiveContainer，刷新原生列表。"];
+}
+
+#pragma mark - Reorder mode
+
+- (void)enterReorderMode {
+    if (self.search.text.length) {
+        self.search.text = @"";
+        [self filter];
+    }
+    self.reorderMode = YES;
+    self.dragGesture.enabled = YES;
+    self.doneButton.hidden = NO;
+    self.search.userInteractionEnabled = NO;
+    [self.collection reloadData];
+    [self showAlertTitle:@"整理模式" message:@"长按图标后拖动排序；点左下角「完成」退出。"];
+}
+- (void)exitReorderMode {
+    self.reorderMode = NO;
+    self.dragGesture.enabled = NO;
+    self.doneButton.hidden = YES;
+    self.search.userInteractionEnabled = YES;
+    [self saveOrder];
+    [self refresh];
+}
+- (void)saveOrder {
+    NSArray<NSString *> *folders = [self.filtered valueForKey:@"folder"];
+    [[NSUserDefaults standardUserDefaults] setObject:folders forKey:LGOrder];
+    // Mirror into LiveContainer's custom-sort store only when the user already
+    // selected custom sorting there, so the native list never changes mode itself.
+    NSUserDefaults *group = LGAppGroupDefaults();
+    if (group && [[group stringForKey:@"LCAppSortType"] isEqualToString:@"custom"]) {
+        NSMutableArray<NSString *> *nativeOrder = [NSMutableArray new];
+        for (LGEntry *entry in self.filtered) {
+            if (entry.bundleId.length) [nativeOrder addObject:[NSString stringWithFormat:@"%@:%@", entry.bundleId, entry.folder]];
+        }
+        [group setObject:nativeOrder forKey:@"LCCustomSortOrder"];
+    }
+}
+- (void)handleDrag:(UILongPressGestureRecognizer *)gesture {
+    CGPoint point = [gesture locationInView:self.collection];
+    switch (gesture.state) {
+        case UIGestureRecognizerStateBegan: {
+            NSIndexPath *indexPath = [self.collection indexPathForItemAtPoint:point];
+            if (!indexPath) return;
+            self.dragging = YES;
+            [self.collection beginInteractiveMovementForItemAtIndexPath:indexPath];
+            break;
+        }
+        case UIGestureRecognizerStateChanged:
+            if (self.dragging) [self.collection updateInteractiveMovementTargetPosition:point];
+            break;
+        case UIGestureRecognizerStateEnded:
+            if (!self.dragging) return;
+            self.dragging = NO;
+            [self.collection endInteractiveMovement];
+            break;
+        default:
+            if (!self.dragging) return;
+            self.dragging = NO;
+            [self.collection cancelInteractiveMovement];
+            break;
+    }
+}
+- (BOOL)collectionView:(UICollectionView *)collectionView canMoveItemAtIndexPath:(NSIndexPath *)indexPath {
+    return self.reorderMode;
+}
+- (void)collectionView:(UICollectionView *)collectionView moveItemAtIndexPath:(NSIndexPath *)sourceIndexPath toIndexPath:(NSIndexPath *)destinationIndexPath {
+    if (!self.reorderMode) return;
+    NSMutableArray<LGEntry *> *items = [self.filtered mutableCopy];
+    if ((NSUInteger)sourceIndexPath.item >= items.count) return;
+    LGEntry *entry = items[sourceIndexPath.item];
+    [items removeObjectAtIndex:sourceIndexPath.item];
+    NSUInteger destination = MIN((NSUInteger)destinationIndexPath.item, items.count);
+    [items insertObject:entry atIndex:destination];
+    self.filtered = items;
+    [self saveOrder];
+}
+
 - (void)showSettings {
     if (self.presentedViewController) return;
     UIAlertController *sheet = [UIAlertController alertControllerWithTitle:[LGLoadedName() stringByDeletingPathExtension]
