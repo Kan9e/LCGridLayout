@@ -11,6 +11,8 @@ FloatingMenuLatency/
 LiveContainer-reference/
 ShowMyTouches-*/
 SideHomeBar/
+LCFloatingMenu_Response_ARM64.zip
+ShowMyTouches-*.zip
 *.pcm
 
 # macOS
