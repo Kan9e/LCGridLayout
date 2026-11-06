@@ -33,6 +33,21 @@ static void LGLog(NSString *message) {
     NSFileHandle *file = [NSFileHandle fileHandleForWritingAtPath:url.path];
     @try { [file seekToEndOfFile]; [file writeData:data]; [file closeFile]; } @catch (__unused NSException *e) {}
 }
+static NSString *LGDetectedVersion;
+
+// Numeric semantic-version comparison; "3.8.11" > "3.8.2" > "3.8.0".
+static BOOL LGVersionAtLeast(NSString *version, NSString *minimum) {
+    NSArray<NSString *> *have = [version componentsSeparatedByString:@"."];
+    NSArray<NSString *> *need = [minimum componentsSeparatedByString:@"."];
+    NSUInteger count = MAX(have.count, need.count);
+    for (NSUInteger i = 0; i < count; i++) {
+        NSInteger a = i < have.count ? have[i].integerValue : 0;
+        NSInteger b = i < need.count ? need[i].integerValue : 0;
+        if (a != b) return a > b;
+    }
+    return YES;
+}
+
 static BOOL LGHost(void) {
     // Runtime host state is essential: guest processes may also contain LC frameworks.
     Class defaults = NSUserDefaults.class;
@@ -42,8 +57,13 @@ static BOOL LGHost(void) {
     if (((BOOL (*)(id, SEL))objc_msgSend)(defaults, liveProcess)) return NO;
     if (LGGet(defaults, @"lcGuestAppId") != nil) return NO;
     NSBundle *bundle = LGGet(defaults, @"lcMainBundle");
-    return [bundle.infoDictionary[@"CFBundleShortVersionString"] isEqual:@"3.8.0"] &&
-        NSClassFromString(@"LCUtils") != Nil;
+    NSString *version = bundle.infoDictionary[@"CFBundleShortVersionString"];
+    // Accept 3.8.0 and every later release/nightly (3.8.2, 3.8.11, 3.9.x, ...).
+    // The APIs this plugin relies on (LCUtils, generateIconForBundleURL:,
+    // livecontainer-launch, LCLoadTweaksToSelf) are unchanged across 3.8.x.
+    if (![version isKindOfClass:NSString.class] || !LGVersionAtLeast(version, @"3.8.0")) return NO;
+    LGDetectedVersion = version;
+    return NSClassFromString(@"LCUtils") != Nil;
 }
 static NSDictionary *LGPlist(NSURL *url) {
     return [NSDictionary dictionaryWithContentsOfURL:url];
@@ -741,7 +761,7 @@ __attribute__((constructor)) static void LGInitialize(void) {
             LGOverlays = [NSHashTable weakObjectsHashTable];
             LGStartTime = CFAbsoluteTimeGetCurrent();
             [NSUserDefaults.standardUserDefaults registerDefaults:@{LGColumns:@4, LGNames:@YES, LGNative:@NO, LGCompactTop:@YES}];
-            LGLog([NSString stringWithFormat:@"Host gate passed: LiveContainer 3.8.0; %@ loaded; no method hooks installed", LGLoadedName()]);
+            LGLog([NSString stringWithFormat:@"Host gate passed: LiveContainer %@ (>= 3.8.0); %@ loaded; no method hooks installed", LGDetectedVersion ?: @"?", LGLoadedName()]);
             // Public UI containment and a low-frequency foreground discovery timer.
             // No swizzling, substrate hooks, key window replacement or gesture hooks.
             // 0.15s discovery: a 1s poll is what made returning to the App tab show

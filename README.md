@@ -1,6 +1,6 @@
 # LCGridLayout
 
-给 **LiveContainer 3.8.0** 的宿主侧 UI 插件：把“我的应用”列表换成桌面式图标网格。
+给 **LiveContainer 3.8.0 及以上**（含 3.8.2 / 3.8.11 等 nightly）的宿主侧 UI 插件：把“我的应用”列表换成桌面式图标网格。
 
 **下载**：[Releases](https://github.com/Kan9e/LCGridLayout/releases) · **许可**：[AGPL-3.0](LICENSE)
 
@@ -16,13 +16,13 @@
 
 ## 环境要求
 
-- LiveContainer **3.8.0**（版本号写死，其他版本会直接退出，不会乱盖 UI）
+- LiveContainer **3.8.0 及以上**（3.8.0 / 3.8.2 / 3.8.11 / 3.9.x 均按同一套 API 适配；低于 3.8.0 会直接退出，不会乱盖 UI）
 - iOS 15+，arm64
 - 已导入 JIT-Less 证书（用于给 dylib 重签）
 
 ## 安装（摘要）
 
-1. LiveContainer → **Tweaks** → 全局根目录 → **Import Tweak** 导入 `LCGridLayout_v9.dylib`
+1. LiveContainer → **Tweaks** → 全局根目录 → **Import Tweak** 导入 `LCGridLayout_v10.dylib`
 2. 点 Tweaks 页的签名按钮，用当前证书重签
 3. Settings 底部连点版本号 5 次 → Developer Settings → 打开 **Load Tweaks to LiveContainer Itself**
 4. 完全退出 LiveContainer，重新打开
@@ -48,7 +48,8 @@
 
 ## 当前状态
 
-- v9 已在 iPhone（iOS 26）实测：冷启动挂载约 28–34 ms、切标签无闪烁、自定义背景持久化、图标启动正常
+- v9 已在 LiveContainer 3.8.0 / iPhone（iOS 26）实测：冷启动挂载约 28–34 ms、切标签无闪烁、自定义背景持久化、图标启动正常
+- v10 起版本门禁改为「>= 3.8.0」，面向 3.8.2 / 3.8.11 等 nightly；这几个版本的真机表现待确认
 - 未验证：iPad / 横屏、多任务并发、其他 iOS 版本、LiveContainer 3.8.0 之外的其他版本
 
 ## 构建
@@ -64,14 +65,14 @@ bash scripts/build.sh    # 产物 dist/LCGridLayout_v<N>.dylib，完整日志 lo
 `VERSION` 文件里的序号决定产物文件名：`scripts/build.sh` 生成 `dist/LCGridLayout_v<N>.dylib`，并把 `dist/LCGridLayout.dylib` 更新为指向最新版的符号链接。运行日志会打印实际加载的文件名：
 
 ```
-Host gate passed: LiveContainer 3.8.0; LCGridLayout_v9.dylib loaded; no method hooks installed
+Host gate passed: LiveContainer 3.8.11 (>= 3.8.0); LCGridLayout_v10.dylib loaded; no method hooks installed
 ```
 
 装到设备时 Tweaks 里只能保留一个 `LCGridLayout*`：多个副本会被同时加载。
 
 ## 已知限制
 
-- 依赖 LiveContainer 3.8.0 的界面结构；换大版本后可能需要跟着改
+- 依赖 LiveContainer 3.8.x 的界面结构（标题、Tab、TweakLoader 行为）；更大版本变动时可能需要跟进
 - 全局 Tweaks 只有 1 个条目时，3.8.0 上游的 `TweakLoader` 会跳过加载，需要至少两个条目
 - ad hoc 签名无效，必须在 LiveContainer 内用当前证书重签
 - iPad / 横屏下 4–5 列会明显留白（单元格宽度按屏宽均分）
@@ -81,6 +82,7 @@ Host gate passed: LiveContainer 3.8.0; LCGridLayout_v9.dylib loaded; no method h
 
 ## 变更记录
 
+- **v10**：版本门禁从「必须等于 3.8.0」改为「>= 3.8.0」，按数字比较语义版本；日志打印检测到的版本。适配 3.8.2 / 3.8.11 等 nightly。
 - **v9**：启动后前 1.2 秒用 30ms 高频轮询（之后回落到 0.1s），把“原生列表闪一帧”的窗口压到一个帧周期（实测挂载 28–34 ms）
 - **v8**：补上「顶部间距：紧凑 / 宽松」设置项；启动动画期间就允许挂载，并在导航标题未写入时接受宿主页，修掉 1.5–1.7 秒才挂载的问题；日志增加 `First tick after N ms`
 - **v7**：顶部间距默认紧凑（减去约 44pt 幽灵大标题留白）；轮询改 0.1s；挂载日志附加耗时

@@ -17,7 +17,7 @@
 3. 设置页底部连续点击版本文字 5 次 → 出现 Developer Settings → 打开 “Load Tweaks to LiveContainer Itself”（本地化文本不同）。
 4. 注意 LiveContainer 3.8.0 的上游逻辑：全局 Tweaks 条目数 ≤ 1 且没有应用专用文件夹时会直接跳过加载。目录里至少保留两个条目（例如同时保留 `LCFloatingMenu_FasterPop_2x_arm64.dylib`），否则插件不会被 dlopen。
 5. 完全退出并重新打开 LiveContainer。读取设备沙盒 `Library/Logs/LCGridLayout.log` 或系统 Console 日志。
-6. 必须同时看到 `Host gate passed: LiveContainer 3.8.0; LCGridLayout_vN.dylib loaded` 和 `Mounted on native app-list hosting controller`，且主界面确实出现网格。只出现前者不算 UI 测试通过。日志里的文件名用来确认设备上加载的是哪一版；`Mounted ... (safe.top=… navBottom=…)` 用于核对顶部间距。
+6. 必须同时看到 `Host gate passed: LiveContainer <版本> (>= 3.8.0); LCGridLayout_vN.dylib loaded` 和 `Mounted on native app-list hosting controller`，且主界面确实出现网格。只出现前者不算 UI 测试通过。日志里的版本号用来确认设备上运行的是哪一版 LiveContainer；`Mounted ... (safe.top=… navBottom=…)` 用于核对顶部间距。
 7. 若 6 秒后仍无网格，日志会自动附带一份 `view hierarchy`（只含类名和标题，无应用名、bundle id、容器路径）。把它连同 iOS 版本一起回传；不得通过对任意窗口强行覆盖来假装成功。
 
 ## 功能和兼容性
