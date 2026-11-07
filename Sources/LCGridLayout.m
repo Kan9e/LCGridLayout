@@ -281,6 +281,9 @@ static UIImage *LGFastIcon(LGEntry *entry) {
 @property(nonatomic) BOOL wasAway;
 @property(nonatomic) BOOL hiddenUnlocked;
 @property(nonatomic) BOOL draggingCell;
+@property(nonatomic) BOOL moved;
+@property(nonatomic) BOOL menuShown;
+@property(nonatomic) NSInteger menuToken;
 @property(nonatomic, strong) UILabel *footer;
 @property(nonatomic, strong) UILongPressGestureRecognizer *longPress;
 @property(nonatomic, strong) NSIndexPath *pressIndexPath;
@@ -642,33 +645,45 @@ static UIImage *LGFastIcon(LGEntry *entry) {
             self.pressIndexPath = indexPath;
             self.pressEntry = self.filtered[indexPath.item];
             self.pressStart = point;
+            self.moved = NO;
+            self.menuShown = NO;
             self.draggingCell = NO;
             UIImpactFeedbackGenerator *haptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
             [haptic impactOccurred];
+            // Keep holding still: the menu shows without waiting for the finger to lift.
+            NSInteger token = ++self.menuToken;
+            __weak typeof(self) weakSelf = self;
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.45 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                if (!weakSelf || weakSelf.menuToken != token || weakSelf.moved || weakSelf.menuShown || !weakSelf.pressEntry) return;
+                weakSelf.menuShown = YES;
+                UICollectionViewCell *cell = [weakSelf.collection cellForItemAtIndexPath:weakSelf.pressIndexPath];
+                [weakSelf showActionsForEntry:weakSelf.pressEntry cell:cell];
+            });
             break;
         }
         case UIGestureRecognizerStateChanged: {
-            if (!self.pressEntry) return;
-            if (!self.draggingCell) {
-                CGFloat dx = point.x - self.pressStart.x;
-                CGFloat dy = point.y - self.pressStart.y;
-                // A small move turns the press into a drag; staying still keeps it a menu.
-                if (self.search.text.length == 0 && sqrt(dx * dx + dy * dy) > 8) {
-                    self.draggingCell = YES;
-                    [self.collection beginInteractiveMovementForItemAtIndexPath:self.pressIndexPath];
-                    UIImpactFeedbackGenerator *haptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
-                    [haptic impactOccurred];
-                }
+            if (!self.pressEntry || self.menuShown) return;
+            CGFloat dx = point.x - self.pressStart.x;
+            CGFloat dy = point.y - self.pressStart.y;
+            if (!self.moved && sqrt(dx * dx + dy * dy) > 6) {
+                self.moved = YES;
+                self.menuToken++;  // cancels the pending menu
+                self.draggingCell = YES;
+                [self.collection beginInteractiveMovementForItemAtIndexPath:self.pressIndexPath];
+                UIImpactFeedbackGenerator *dragHaptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
+                [dragHaptic impactOccurred];
             }
             if (self.draggingCell) [self.collection updateInteractiveMovementTargetPosition:point];
             break;
         }
         case UIGestureRecognizerStateEnded: {
-            if (self.draggingCell) {
+            self.menuToken++;
+            if (self.moved && self.draggingCell) {
                 self.draggingCell = NO;
                 [self.collection endInteractiveMovement];
                 [self saveOrder];
-            } else if (self.pressEntry) {
+            } else if (!self.menuShown && self.pressEntry) {
+                // Quick release before the timer: still show the menu.
                 UICollectionViewCell *cell = [self.collection cellForItemAtIndexPath:self.pressIndexPath];
                 [self showActionsForEntry:self.pressEntry cell:cell];
             }
@@ -676,6 +691,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
             break;
         }
         default: {
+            self.menuToken++;
             if (self.draggingCell) {
                 self.draggingCell = NO;
                 [self.collection cancelInteractiveMovement];
