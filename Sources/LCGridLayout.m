@@ -382,7 +382,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     self.footer.textAlignment = NSTextAlignmentCenter;
     self.footer.userInteractionEnabled = YES;
     UITapGestureRecognizer *footerTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(footerTapped:)];
-    footerTap.numberOfTapsRequired = 5;
+    footerTap.numberOfTapsRequired = 3;
     [self.footer addGestureRecognizer:footerTap];
     [self.panel addSubview:self.footer];
     self.nativeMode = [NSUserDefaults.standardUserDefaults boolForKey:LGNative];
