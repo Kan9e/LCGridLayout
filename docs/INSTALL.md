@@ -2,7 +2,7 @@
 
 适用：LiveContainer **3.8.0 及以上**（含 3.8.2 / 3.8.11 等 nightly），越狱无关的 JIT-Less / 侧载环境。
 
-产物：从 [Releases](https://github.com/Kan9e/LCGridLayout/releases) 下载 `LCGridLayout_v14.dylib`，SHA-256 `535e7d029517a3db0df7fd6ac713d443b471997830a30856740df9360bbb6ce5`。
+产物：从 [Releases](https://github.com/Kan9e/LCGridLayout/releases) 下载 `LCGridLayout_v15.dylib`，SHA-256 `2f5e85dfb8c84a3ac4b5aea0e383eb65db58d31e3e08faa30d1469d087fd2f86`。
 
 ---
 
@@ -16,7 +16,7 @@
 ## 二、安装（4 步）
 
 1. **导入 dylib**
-   LiveContainer → **Tweaks** 标签 → 停在全局根目录（不要进某个应用专用子文件夹）→ 右上角 “Import Tweak” → 选带版本号的文件，例如 `LCGridLayout_v14.dylib`。**先删掉设备上旧的 `LCGridLayout*`**，多个副本会被同时加载。
+   LiveContainer → **Tweaks** 标签 → 停在全局根目录（不要进某个应用专用子文件夹）→ 右上角 “Import Tweak” → 选带版本号的文件，例如 `LCGridLayout_v15.dylib`。**先删掉设备上旧的 `LCGridLayout*`**，多个副本会被同时加载。
 
 2. **重签**
    停在 Tweaks 页 → 点签名按钮（`signature` 图标，文案是 “Sign”）。ad hoc 签名在设备上过不了校验，这一步必须做。
@@ -31,7 +31,7 @@
 ## 三、怎么用
 
 - **网格 / 原生列表切换**：网格顶部左侧 “恢复原生”（带回退图标）回到原列表；原列表右下角 “返回网格” 再切回来。原列表里添加、管理、容器选择、隐藏应用解锁全部照旧。
-- **长按图标**：弹出菜单
+- **长按图标**：从底部弹出操作菜单
   - **重新排列**：进入整理模式，长按图标拖动排序，点左下角「完成」保存退出
   - **隐藏**：写入应用元数据后从网格消失；建议重启 LiveContainer 让原生列表同步
   - **卸载**（仅非共享应用）：确认后删除应用包，并询问是否同时删除数据容器；不可撤销

@@ -285,6 +285,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
 @property(nonatomic, strong) UILabel *footer;
 @property(nonatomic, strong) UIButton *doneButton;
 @property(nonatomic, strong) UILongPressGestureRecognizer *dragGesture;
+@property(nonatomic, strong) UILongPressGestureRecognizer *menuGesture;
 @property(nonatomic) CGFloat lastTopInset;
 @property(nonatomic) UIEdgeInsets lastSafeInsets;
 @property(nonatomic, strong) NSMutableSet<NSString *> *pendingIcons;
@@ -378,6 +379,9 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     self.dragGesture.minimumPressDuration = 0.35;
     self.dragGesture.enabled = NO;
     [self.collection addGestureRecognizer:self.dragGesture];
+    self.menuGesture = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(menuGestureChanged:)];
+    self.menuGesture.minimumPressDuration = 0.5;
+    [self.collection addGestureRecognizer:self.menuGesture];
     self.footer = [UILabel new];
     self.footer.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     self.footer.textColor = UIColor.secondaryLabelColor;
@@ -430,8 +434,9 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     self.bar.frame = CGRectMake(16, top, MAX(0,w-32), 40);
     self.search.frame = CGRectMake(4, top+40, MAX(0,w-8), 48);
     CGFloat footerHeight = MAX(24, self.footer.font.lineHeight + 2);
-    self.footer.frame = CGRectMake(0, MAX(0, h-safe.bottom-footerHeight-2), w, footerHeight);
-    CGRect frame = CGRectMake(0, top+88, w, MAX(0, h-top-88-safe.bottom-footerHeight-4));
+    CGFloat footerGap = 14;
+    self.footer.frame = CGRectMake(0, MAX(0, h-safe.bottom-footerHeight-footerGap), w, footerHeight);
+    CGRect frame = CGRectMake(0, top+88, w, MAX(0, h-top-88-safe.bottom-footerHeight-footerGap-2));
     BOOL resized = !CGSizeEqualToSize(self.collection.bounds.size, frame.size);
     self.collection.frame = frame;
     self.returnButton.frame = CGRectMake(MAX(8,w-150), MAX(0,h-safe.bottom-54), 138, 44);
@@ -464,7 +469,6 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     NSString *fmt = [LGGet(NSUserDefaults.class, @"lcMainBundle") localizedStringForKey:@"lc.appList.appCounter" value:@"共 %lld 个 App" table:nil];
     if (![fmt isKindOfClass:NSString.class] || fmt.length == 0) fmt = @"共 %lld 个 App";
     NSString *counter = [NSString localizedStringWithFormat:fmt, (long long)self.filtered.count];
-    if (self.hiddenUnlocked) counter = [counter stringByAppendingString:@" · 隐藏已解锁"];
     self.footer.text = counter;
     [self.collection reloadData];
 }
@@ -643,46 +647,37 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     [self presentViewController:share animated:YES completion:nil];
 }
 
-#pragma mark - Context menu (hide / uninstall / reorder)
+#pragma mark - Long-press actions (hide / uninstall / reorder)
 
-- (UIContextMenuConfiguration *)collectionView:(UICollectionView *)collectionView
-        contextMenuConfigurationForItemAtIndexPath:(NSIndexPath *)indexPath
-                                             point:(CGPoint)point {
-    // While reordering, long-press is reserved for dragging.
-    if (self.reorderMode || indexPath.item >= (NSInteger)self.filtered.count) return nil;
+- (void)menuGestureChanged:(UILongPressGestureRecognizer *)gesture {
+    if (gesture.state != UIGestureRecognizerStateBegan || self.reorderMode) return;
+    CGPoint point = [gesture locationInView:self.collection];
+    NSIndexPath *indexPath = [self.collection indexPathForItemAtPoint:point];
+    if (!indexPath || indexPath.item >= (NSInteger)self.filtered.count) return;
     LGEntry *entry = self.filtered[indexPath.item];
-    return [UIContextMenuConfiguration configurationWithIdentifier:nil previewProvider:nil actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggested) {
-        return [self menuForEntry:entry];
-    }];
+    UICollectionViewCell *cell = [self.collection cellForItemAtIndexPath:indexPath];
+    [self showActionsForEntry:entry cell:cell];
 }
-// UIKit snapshots the cell as a "highlighting" preview by default; that shows up
-// as a translucent rounded rectangle under the icon while the menu is open.
-- (UITargetedPreview *)collectionView:(UICollectionView *)collectionView
-        previewForHighlightingContextMenuWithConfiguration:(UIContextMenuConfiguration *)configuration {
-    return nil;
-}
-- (UITargetedPreview *)collectionView:(UICollectionView *)collectionView
-        previewForDismissingContextMenuWithConfiguration:(UIContextMenuConfiguration *)configuration {
-    return nil;
-}
-
-- (UIMenu *)menuForEntry:(LGEntry *)entry {
+- (void)showActionsForEntry:(LGEntry *)entry cell:(UICollectionViewCell *)cell {
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:entry.name message:nil preferredStyle:UIAlertControllerStyleActionSheet];
     __weak typeof(self) weakSelf = self;
-    UIAction *reorder = [UIAction actionWithTitle:@"重新排列" image:[UIImage systemImageNamed:@"arrow.up.arrow.down"] identifier:nil handler:^(UIAction *action) {
+    [sheet addAction:[UIAlertAction actionWithTitle:@"重新排列" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         [weakSelf enterReorderMode];
-    }];
-    UIAction *hide = [UIAction actionWithTitle:@"隐藏" image:[UIImage systemImageNamed:@"eye.slash"] identifier:nil handler:^(UIAction *action) {
+    }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"隐藏" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         [weakSelf hideEntry:entry];
-    }];
-    NSMutableArray<UIMenuElement *> *actions = [NSMutableArray arrayWithObjects:reorder, hide, nil];
+    }]];
     if (!entry.shared) {
-        UIAction *uninstall = [UIAction actionWithTitle:@"卸载" image:[UIImage systemImageNamed:@"trash"] identifier:nil handler:^(UIAction *action) {
+        [sheet addAction:[UIAlertAction actionWithTitle:@"卸载" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
             [weakSelf confirmUninstallEntry:entry];
-        }];
-        uninstall.attributes = UIMenuElementAttributesDestructive;
-        [actions addObject:uninstall];
+        }]];
     }
-    return [UIMenu menuWithTitle:entry.name children:actions];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    if (sheet.popoverPresentationController) {
+        sheet.popoverPresentationController.sourceView = cell ?: self.collection;
+        sheet.popoverPresentationController.sourceRect = cell ? cell.bounds : self.collection.bounds;
+    }
+    [self presentAlert:sheet retries:3];
 }
 
 - (void)presentAlert:(UIAlertController *)alert retries:(NSInteger)retries {
@@ -793,6 +788,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     }
     self.reorderMode = YES;
     self.dragGesture.enabled = YES;
+    self.menuGesture.enabled = NO;
     self.doneButton.hidden = NO;
     self.search.userInteractionEnabled = NO;
     [self.collection reloadData];
@@ -801,6 +797,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
 - (void)exitReorderMode {
     self.reorderMode = NO;
     self.dragGesture.enabled = NO;
+    self.menuGesture.enabled = YES;
     self.doneButton.hidden = YES;
     self.search.userInteractionEnabled = YES;
     [self saveOrder];
