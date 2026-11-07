@@ -708,7 +708,9 @@ static UIImage *LGFastIcon(LGEntry *entry) {
         }]];
     }
     [sheet addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
-    if (sheet.popoverPresentationController) {
+    // iPhone: leave the source unset so UIKit shows the standard bottom sheet.
+    // Setting an anchor makes iOS 26 draw it as a bubble near the icon instead.
+    if (sheet.popoverPresentationController && self.traitCollection.userInterfaceIdiom == UIUserInterfaceIdiomPad) {
         sheet.popoverPresentationController.sourceView = cell ?: self.collection;
         sheet.popoverPresentationController.sourceRect = cell ? cell.bounds : self.collection.bounds;
     }
@@ -872,7 +874,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
 - (void)setHiddenUnlocked:(BOOL)unlocked {
     _hiddenUnlocked = unlocked;
     [self refresh];
-    [self showAlertTitle:@"已解锁隐藏应用" message:@"隐藏应用已显示在网格末尾。重启 LiveContainer 后会自动上锁。"];
+    LGLog(@"Hidden apps unlocked for this session");
 }
 
 - (void)showSettings {
