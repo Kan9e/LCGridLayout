@@ -201,6 +201,22 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     return nil;
 }
 
+// LiveContainer 3.8.x can show its own search field in the navigation area.
+// Walking the window (skipping our overlay) lets us avoid stacking a second one.
+static BOOL LGIsSearchField(UIView *view) {
+    if ([view isKindOfClass:UISearchBar.class]) return YES;
+    NSString *name = NSStringFromClass(view.class);
+    return [name containsString:@"SearchField"] || [name containsString:@"SearchBar"];
+}
+static void LGCollectSearchFields(UIView *view, UIView *skip, NSMutableArray<NSValue *> *result) {
+    if (!view || view == skip || view.hidden || view.alpha < 0.01) return;
+    if (LGIsSearchField(view) && view.window) {
+        [result addObject:[NSValue valueWithCGRect:[view convertRect:view.bounds toView:nil]]];
+        return;
+    }
+    for (UIView *sub in view.subviews) LGCollectSearchFields(sub, skip, result);
+}
+
 @interface LGPassView : UIView
 @end
 @implementation LGPassView
@@ -289,6 +305,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
 @property(nonatomic, strong) NSIndexPath *pressIndexPath;
 @property(nonatomic, strong) LGEntry *pressEntry;
 @property(nonatomic) CGPoint pressStart;
+@property(nonatomic) BOOL hadNativeTopSearch;
 @property(nonatomic) CGFloat lastTopInset;
 @property(nonatomic) UIEdgeInsets lastSafeInsets;
 @property(nonatomic, strong) NSMutableSet<NSString *> *pendingIcons;
@@ -401,9 +418,26 @@ static UIImage *LGFastIcon(LGEntry *entry) {
 - (void)lgSyncLayout {
     CGFloat top = [self lgTopInset];
     UIEdgeInsets safe = self.view.safeAreaInsets;
-    if (fabs(top - self.lastTopInset) > 0.5 || !UIEdgeInsetsEqualToEdgeInsets(safe, self.lastSafeInsets)) {
+    BOOL hasNativeSearch = !CGRectIsEmpty([self lgTopNativeSearchFrame]);
+    if (fabs(top - self.lastTopInset) > 0.5 || !UIEdgeInsetsEqualToEdgeInsets(safe, self.lastSafeInsets) ||
+        hasNativeSearch != self.hadNativeTopSearch) {
         [self.view setNeedsLayout];
     }
+}
+- (CGRect)lgTopNativeSearchFrame {
+    UIWindow *window = self.view.window;
+    if (!window) return CGRectZero;
+    NSMutableArray<NSValue *> *frames = [NSMutableArray new];
+    LGCollectSearchFields(window.rootViewController.view, self.view, frames);
+    CGRect result = CGRectZero;
+    for (NSValue *value in frames) {
+        CGRect inSelf = [window convertRect:value.CGRectValue toView:self.view];
+        if (inSelf.size.width < 60 || inSelf.size.height < 1) continue;
+        CGFloat topInWindow = [self.view convertRect:inSelf toView:nil].origin.y;
+        if (topInWindow > 220) continue;  // only the search field in the top area matters
+        result = CGRectIsEmpty(result) ? inSelf : CGRectUnion(result, inSelf);
+    }
+    return result;
 }
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
@@ -411,12 +445,17 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     // translucent tab bar); interactive content stays inside the safe area.
     UIEdgeInsets safe = self.view.safeAreaInsets;
     CGFloat w = self.view.bounds.size.width, h = self.view.bounds.size.height;
+    CGRect nativeSearch = [self lgTopNativeSearchFrame];
+    BOOL hasNativeTopSearch = !CGRectIsEmpty(nativeSearch);
+    self.search.hidden = hasNativeTopSearch;
     CGFloat top = [self lgTopInset] + 2;
-    // The host page reports ~44pt of phantom top inset (large-title space that is
-    // not actually visible), which shows up as the big blank above our toolbar.
-    if ([NSUserDefaults.standardUserDefaults boolForKey:LGCompactTop]) top = MAX(0, top - 44);
+    // Compact mode removes the phantom large-title inset, but only when there is
+    // no native search field to sit below.
+    if (!hasNativeTopSearch && [NSUserDefaults.standardUserDefaults boolForKey:LGCompactTop]) top = MAX(0, top - 44);
+    if (hasNativeTopSearch) top = MAX(top, CGRectGetMaxY(nativeSearch) + 4);
     self.lastTopInset = [self lgTopInset];
     self.lastSafeInsets = safe;
+    self.hadNativeTopSearch = hasNativeTopSearch;
     self.panel.frame = self.view.bounds;
     self.backgroundView.frame = self.panel.bounds;
     self.dimView.frame = self.panel.bounds;
@@ -425,7 +464,8 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     CGFloat footerHeight = MAX(24, self.footer.font.lineHeight + 2);
     CGFloat footerGap = 14;
     self.footer.frame = CGRectMake(0, MAX(0, h-safe.bottom-footerHeight-footerGap), w, footerHeight);
-    CGRect frame = CGRectMake(0, top+88, w, MAX(0, h-top-88-safe.bottom-footerHeight-footerGap-2));
+    CGFloat headerHeight = 40 + (hasNativeTopSearch ? 8 : 48);
+    CGRect frame = CGRectMake(0, top+headerHeight, w, MAX(0, h-top-headerHeight-safe.bottom-footerHeight-footerGap-2));
     BOOL resized = !CGSizeEqualToSize(self.collection.bounds.size, frame.size);
     self.collection.frame = frame;
     self.returnButton.frame = CGRectMake(MAX(8,w-150), MAX(0,h-safe.bottom-54), 138, 44);
