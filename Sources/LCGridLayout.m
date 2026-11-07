@@ -369,7 +369,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     [self.returnButton addTarget:self action:@selector(showGrid) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:self.returnButton];
     self.longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleLongPress:)];
-    self.longPress.minimumPressDuration = 0.5;
+    self.longPress.minimumPressDuration = 0.3;
     [self.collection addGestureRecognizer:self.longPress];
     self.footer = [UILabel new];
     self.footer.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
