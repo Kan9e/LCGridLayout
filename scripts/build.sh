@@ -26,6 +26,7 @@ main() {
     -Wno-unused-parameter -Wno-deprecated-declarations \
     -framework Foundation -framework UIKit -framework QuartzCore -framework CoreGraphics \
     -framework PhotosUI \
+    -framework LocalAuthentication \
     -install_name @rpath/${NAME}.dylib \
     -Wl,-undefined,error Sources/LCGridLayout.m -o "$OUTPUT"
   codesign --force --sign "${LCGRID_SIGN_IDENTITY:--}" --timestamp=none "$OUTPUT"

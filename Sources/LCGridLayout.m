@@ -2,6 +2,7 @@
 // Development source. A successful build is NOT a substitute for device validation.
 #import <UIKit/UIKit.h>
 #import <PhotosUI/PhotosUI.h>
+#import <LocalAuthentication/LocalAuthentication.h>
 #import <QuartzCore/QuartzCore.h>
 #import <objc/message.h>
 #import <objc/runtime.h>
@@ -118,13 +119,14 @@ static NSUserDefaults *LGAppGroupDefaults(void) {
 @property(nonatomic, copy) NSString *bundleId;
 @property(nonatomic) BOOL locked;
 @property(nonatomic) BOOL shared;
+@property(nonatomic) BOOL hidden;
 @end
 @implementation LGEntry
 @end
 
 static NSUInteger LGCountHidden, LGCountAmbiguous, LGCountDamaged;
 
-static NSArray<LGEntry *> *LGReadApps(void) {
+static NSArray<LGEntry *> *LGReadApps(BOOL includeHidden) {
     NSFileManager *fm = NSFileManager.defaultManager;
     LGCountHidden = LGCountAmbiguous = LGCountDamaged = 0;
     NSURL *docs = [fm URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].lastObject;
@@ -151,12 +153,16 @@ static NSArray<LGEntry *> *LGReadApps(void) {
             // the user can tell why an app visible in the native list is missing here.
             LGEntryState state = LGStateFor(info, meta, [fm fileExistsAtPath:metaURL.path]);
             if (state == LGEntryStateDamaged) { LGCountDamaged++; continue; }
-            if (state == LGEntryStateHidden) { LGCountHidden++; continue; }
+            if (state == LGEntryStateHidden) {
+                LGCountHidden++;
+                if (!includeHidden) continue;
+            }
             LGEntry *entry = [LGEntry new];
             entry.url = url;
             entry.folder = url.lastPathComponent;
             entry.bundleId = info[@"CFBundleIdentifier"];
             entry.shared = shared;
+            entry.hidden = (state == LGEntryStateHidden);
             entry.locked = [meta[@"isLocked"] boolValue];
             entry.name = info[@"CFBundleDisplayName"] ?: info[@"CFBundleName"] ?: entry.folder.stringByDeletingPathExtension;
             if (![entry.name isKindOfClass:NSString.class]) entry.name = entry.folder;
@@ -176,6 +182,7 @@ static NSArray<LGEntry *> *LGReadApps(void) {
         if ([folder isKindOfClass:NSString.class]) rank[folder] = @(rank.count);
     }
     [result sortUsingComparator:^NSComparisonResult(LGEntry *a, LGEntry *b) {
+        if (a.hidden != b.hidden) return a.hidden ? NSOrderedDescending : NSOrderedAscending;
         NSNumber *rankA = rank[a.folder], *rankB = rank[b.folder];
         if (rankA && rankB) return rankA.integerValue < rankB.integerValue ? NSOrderedAscending : NSOrderedDescending;
         if (rankA) return NSOrderedAscending;
@@ -272,6 +279,8 @@ static UIImage *LGFastIcon(LGEntry *entry) {
 @property(nonatomic) BOOL wasAway;
 @property(nonatomic) BOOL reorderMode;
 @property(nonatomic) BOOL dragging;
+@property(nonatomic) BOOL hiddenUnlocked;
+@property(nonatomic, strong) UILabel *footer;
 @property(nonatomic, strong) UIButton *doneButton;
 @property(nonatomic, strong) UILongPressGestureRecognizer *dragGesture;
 @property(nonatomic) CGFloat lastTopInset;
@@ -367,6 +376,15 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     self.dragGesture.minimumPressDuration = 0.35;
     self.dragGesture.enabled = NO;
     [self.collection addGestureRecognizer:self.dragGesture];
+    self.footer = [UILabel new];
+    self.footer.font = [UIFont systemFontOfSize:13];
+    self.footer.textColor = UIColor.secondaryLabelColor;
+    self.footer.textAlignment = NSTextAlignmentCenter;
+    self.footer.userInteractionEnabled = YES;
+    UITapGestureRecognizer *footerTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(footerTapped:)];
+    footerTap.numberOfTapsRequired = 5;
+    [self.footer addGestureRecognizer:footerTap];
+    [self.panel addSubview:self.footer];
     self.nativeMode = [NSUserDefaults.standardUserDefaults boolForKey:LGNative];
     [self applyMode];
     [self loadBackground];
@@ -409,7 +427,9 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     self.dimView.frame = self.panel.bounds;
     self.bar.frame = CGRectMake(16, top, MAX(0,w-32), 40);
     self.search.frame = CGRectMake(4, top+40, MAX(0,w-8), 48);
-    CGRect frame = CGRectMake(0, top+88, w, MAX(0, h-top-88-safe.bottom));
+    CGFloat footerHeight = 22;
+    self.footer.frame = CGRectMake(0, MAX(0, h-safe.bottom-footerHeight-2), w, footerHeight);
+    CGRect frame = CGRectMake(0, top+88, w, MAX(0, h-top-88-safe.bottom-footerHeight-4));
     BOOL resized = !CGSizeEqualToSize(self.collection.bounds.size, frame.size);
     self.collection.frame = frame;
     self.returnButton.frame = CGRectMake(MAX(8,w-150), MAX(0,h-safe.bottom-54), 138, 44);
@@ -424,7 +444,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
 - (void)showNative { [self.view endEditing:YES]; self.nativeMode = YES; [self applyMode]; }
 - (void)showGrid { self.nativeMode = NO; [self applyMode]; [self refresh]; }
 - (void)refresh {
-    self.entries = LGReadApps();
+    self.entries = LGReadApps(self.hiddenUnlocked);
     // Keep the icon cache: clearing it forced every icon to be regenerated on each
     // tab switch, which is what made returning to this page stall for ~1s.
     [self filter];
@@ -439,6 +459,11 @@ static UIImage *LGFastIcon(LGEntry *entry) {
         return query.length == 0 || [entry.name localizedCaseInsensitiveContainsString:query];
     }]];
     self.empty.hidden = self.filtered.count != 0;
+    NSString *fmt = [LGGet(NSUserDefaults.class, @"lcMainBundle") localizedStringForKey:@"lc.appList.appCounter" value:@"共 %lld 个 App" table:nil];
+    if (![fmt isKindOfClass:NSString.class] || fmt.length == 0) fmt = @"共 %lld 个 App";
+    NSString *counter = [NSString localizedStringWithFormat:fmt, (long long)self.filtered.count];
+    if (self.hiddenUnlocked) counter = [counter stringByAppendingString:@" · 隐藏已解锁"];
+    self.footer.text = counter;
     [self.collection reloadData];
 }
 - (void)searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)searchText { [self filter]; }
@@ -504,6 +529,11 @@ static UIImage *LGFastIcon(LGEntry *entry) {
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     if (self.reorderMode) return;
     LGEntry *entry = self.filtered[indexPath.item];
+    NSUserDefaults *groupDefaults = LGAppGroupDefaults();
+    if (entry.hidden && [groupDefaults boolForKey:@"LCStrictHiding"]) {
+        [self showAlertTitle:@"隐藏应用未解锁" message:@"LiveContainer 开启了严格隐藏，请先在原生列表完成解锁再从网格启动。"];
+        return;
+    }
     if (LGEntryStateFor(entry.url) != LGEntryStateOK) { [self refresh]; return; }
     NSString *scheme = LGGet(NSClassFromString(@"LCUtils"), @"appUrlScheme");
     if (![scheme isKindOfClass:NSString.class] || scheme.length == 0) {
@@ -815,6 +845,37 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     [items insertObject:entry atIndex:destination];
     self.filtered = items;
     [self saveOrder];
+}
+
+
+#pragma mark - Hidden apps unlock
+
+- (void)footerTapped:(UITapGestureRecognizer *)gesture {
+    if (self.hiddenUnlocked) return;
+    LAContext *context = [LAContext new];
+    NSError *error = nil;
+    if (![context canEvaluatePolicy:LAPolicyDeviceOwnerAuthentication error:&error]) {
+        if (error.code == LAErrorPasscodeNotSet) {
+            [self setHiddenUnlocked:YES];
+        } else {
+            [self showAlertTitle:@"无法解锁隐藏应用" message:@"此设备没有可用的面容 ID 或密码。"];
+        }
+        return;
+    }
+    [context evaluatePolicy:LAPolicyDeviceOwnerAuthentication localizedReason:@"解锁隐藏应用" reply:^(BOOL success, NSError *authError) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (success || authError.code == LAErrorPasscodeNotSet) {
+                [self setHiddenUnlocked:YES];
+            } else if (authError.code != LAErrorUserCancel && authError.code != LAErrorSystemCancel) {
+                [self showAlertTitle:@"解锁失败" message:authError.localizedDescription ?: @"认证未通过。"];
+            }
+        });
+    }];
+}
+- (void)setHiddenUnlocked:(BOOL)unlocked {
+    _hiddenUnlocked = unlocked;
+    [self refresh];
+    [self showAlertTitle:@"已解锁隐藏应用" message:@"隐藏应用已显示在网格末尾。重启 LiveContainer 后会自动上锁。"];
 }
 
 - (void)showSettings {

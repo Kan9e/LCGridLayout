@@ -2,7 +2,7 @@
 
 适用：LiveContainer **3.8.0 及以上**（含 3.8.2 / 3.8.11 等 nightly），越狱无关的 JIT-Less / 侧载环境。
 
-产物：从 [Releases](https://github.com/Kan9e/LCGridLayout/releases) 下载 `LCGridLayout_v11.dylib`，SHA-256 `3708933162cd650b8d8aaa7533ddece381843530d7d723c162e3d16cd70e8866`。
+产物：从 [Releases](https://github.com/Kan9e/LCGridLayout/releases) 下载 `LCGridLayout_v12.dylib`，SHA-256 `107b18e830201d24ce8359185e52b5045e7e437ee43cc9bd71f5c6ecdc70e74e`。
 
 ---
 
@@ -16,7 +16,7 @@
 ## 二、安装（4 步）
 
 1. **导入 dylib**
-   LiveContainer → **Tweaks** 标签 → 停在全局根目录（不要进某个应用专用子文件夹）→ 右上角 “Import Tweak” → 选带版本号的文件，例如 `LCGridLayout_v11.dylib`。**先删掉设备上旧的 `LCGridLayout*`**，多个副本会被同时加载。
+   LiveContainer → **Tweaks** 标签 → 停在全局根目录（不要进某个应用专用子文件夹）→ 右上角 “Import Tweak” → 选带版本号的文件，例如 `LCGridLayout_v12.dylib`。**先删掉设备上旧的 `LCGridLayout*`**，多个副本会被同时加载。
 
 2. **重签**
    停在 Tweaks 页 → 点签名按钮（`signature` 图标，文案是 “Sign”）。ad hoc 签名在设备上过不了校验，这一步必须做。
@@ -35,6 +35,7 @@
   - **重新排列**：进入整理模式，长按图标拖动排序，点左下角「完成」保存退出
   - **隐藏**：写入应用元数据后从网格消失；建议重启 LiveContainer 让原生列表同步
   - **卸载**（仅非共享应用）：确认后删除应用包，并询问是否同时删除数据容器；不可撤销
+- **解锁隐藏应用**：网格底部“共 N 个 App”连点 5 次 → 系统面容/密码认证 → 隐藏应用显示在末尾；重启 LiveContainer 自动上锁
 - **网格设置**：顶部右侧 “网格设置” → 4/5 列、显示/隐藏应用名称、顶部间距（紧凑/宽松）、选择/更换/移除背景、导出调试日志、恢复原生列表。设置存 `NSUserDefaults`，冷启动保留。
 - **自定义背景**：“网格设置 → 选择背景图片” → 系统相册选一张图 → 自动裁切填充并叠 35% 黑遮罩。图片存在 `Library/Application Support/LCGridLayout/background.jpg`（最长边压到 2200px），重启、切标签都保留；移除在 “网格设置 → 移除背景”。不需要相册权限，也不会把图片写进 LiveContainer 的应用目录。
 - **刷新**：下拉刷新会重扫应用目录；从原生列表切回网格也会自动刷新。
@@ -60,6 +61,7 @@
 | 选了背景但没变化 | `Background image updated` 缺失 | 看是否有 “背景图片保存失败” 提示；确认设备剩余空间，或换一张普通 JPEG/PNG（HEIC 也可，会转成 JPEG） |
 | 隐藏/卸载后原生列表还显示 | — | 预期行为：直接改文件不会刷新 LiveContainer 内存模型，完全退出重开即可 |
 | 卸载项看不到 | — | 共享应用不提供卸载，请在原生列表操作 |
+| 解锁后点隐藏应用没反应 | — | LiveContainer 开了「严格隐藏」时，需要先在原生列表解锁 |
 | 网格少显示某个应用 | `Loaded N app(s); skipped hidden=… ambiguous=… damaged=…` | 点“网格设置”看计数：隐藏=隐藏应用；冲突=本地/共享同名文件夹被有意排除；异常=plist 损坏。原生列表能看到但网格没有，把这一行发我 |
 | 出现 `Mounted on native app-list hosting controller` 但看不到网格 | — | 检查是否之前点了“原生列表”被持久化：找右下角 “返回网格” 按钮 |
 | 图标全是系统占位图 | `Host icon provider failed` | 宿主图标接口异常，功能不受影响；记录 iOS 版本 |
