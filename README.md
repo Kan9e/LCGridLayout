@@ -27,7 +27,7 @@
 
 ## 安装（摘要）
 
-1. LiveContainer → **Tweaks** → 全局根目录 → **Import Tweak** 导入 `LCGridLayout_v21.dylib`
+1. LiveContainer → **Tweaks** → 全局根目录 → **Import Tweak** 导入 `LCGridLayout_v22.dylib`
 2. 点 Tweaks 页的签名按钮，用当前证书重签
 3. Settings 底部连点版本号 5 次 → Developer Settings → 打开 **Load Tweaks to LiveContainer Itself**
 4. 完全退出 LiveContainer，重新打开
@@ -92,6 +92,7 @@ Host gate passed: LiveContainer 3.8.11 (>= 3.8.0); LCGridLayout_v10.dylib loaded
 
 ## 变更记录
 
+- **v22**：修复解锁隐藏应用后点击无反应——点击守卫把 `isHidden` 状态误判成“不可启动”，直接 return 了
 - **v21**：解锁隐藏应用后不再弹提示；长按菜单在 iPhone 上固定从底部弹出，不再随图标位置被 iOS 26 渲染成顶部气泡
 - **v20**：隐藏操作改为静默生效（不再弹“已隐藏”提示）；移除严格隐藏下的拦截弹窗，改由 LiveContainer 自行处理
 - **v19**：长按识别阈值从 0.5 秒降到 0.3 秒（按住等待仍为 0.35 秒，菜单约 0.65 秒出现）

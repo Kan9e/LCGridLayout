@@ -522,7 +522,13 @@ static UIImage *LGFastIcon(LGEntry *entry) {
 }
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     LGEntry *entry = self.filtered[indexPath.item];
-    if (LGEntryStateFor(entry.url) != LGEntryStateOK) { [self refresh]; return; }
+    // Hidden entries are shown only after unlocking, so they must stay launchable;
+    // only damaged metadata (or a stale hidden entry) is dropped here.
+    LGEntryState state = LGEntryStateFor(entry.url);
+    if (state == LGEntryStateDamaged || (state == LGEntryStateHidden && !self.hiddenUnlocked)) {
+        [self refresh];
+        return;
+    }
     NSString *scheme = LGGet(NSClassFromString(@"LCUtils"), @"appUrlScheme");
     if (![scheme isKindOfClass:NSString.class] || scheme.length == 0) {
         LGLog(@"Launch refused: no native URL scheme");
