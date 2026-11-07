@@ -279,13 +279,13 @@ static UIImage *LGFastIcon(LGEntry *entry) {
 @property(nonatomic, strong) NSCache<NSString *, UIImage *> *icons;
 @property(nonatomic) BOOL nativeMode;
 @property(nonatomic) BOOL wasAway;
-@property(nonatomic) BOOL reorderMode;
-@property(nonatomic) BOOL dragging;
 @property(nonatomic) BOOL hiddenUnlocked;
+@property(nonatomic) BOOL draggingCell;
 @property(nonatomic, strong) UILabel *footer;
-@property(nonatomic, strong) UIButton *doneButton;
-@property(nonatomic, strong) UILongPressGestureRecognizer *dragGesture;
-@property(nonatomic, strong) UILongPressGestureRecognizer *menuGesture;
+@property(nonatomic, strong) UILongPressGestureRecognizer *longPress;
+@property(nonatomic, strong) NSIndexPath *pressIndexPath;
+@property(nonatomic, strong) LGEntry *pressEntry;
+@property(nonatomic) CGPoint pressStart;
 @property(nonatomic) CGFloat lastTopInset;
 @property(nonatomic) UIEdgeInsets lastSafeInsets;
 @property(nonatomic, strong) NSMutableSet<NSString *> *pendingIcons;
@@ -365,23 +365,9 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     self.returnButton.configuration = config;
     [self.returnButton addTarget:self action:@selector(showGrid) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:self.returnButton];
-    UIButtonConfiguration *doneConfig = [UIButtonConfiguration filledButtonConfiguration];
-    doneConfig.title = @"完成";
-    doneConfig.image = [UIImage systemImageNamed:@"checkmark"];
-    doneConfig.imagePadding = 8;
-    doneConfig.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
-    self.doneButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    self.doneButton.configuration = doneConfig;
-    self.doneButton.hidden = YES;
-    [self.doneButton addTarget:self action:@selector(exitReorderMode) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:self.doneButton];
-    self.dragGesture = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleDrag:)];
-    self.dragGesture.minimumPressDuration = 0.35;
-    self.dragGesture.enabled = NO;
-    [self.collection addGestureRecognizer:self.dragGesture];
-    self.menuGesture = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(menuGestureChanged:)];
-    self.menuGesture.minimumPressDuration = 0.5;
-    [self.collection addGestureRecognizer:self.menuGesture];
+    self.longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleLongPress:)];
+    self.longPress.minimumPressDuration = 0.5;
+    [self.collection addGestureRecognizer:self.longPress];
     self.footer = [UILabel new];
     self.footer.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     self.footer.textColor = UIColor.secondaryLabelColor;
@@ -440,7 +426,6 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     BOOL resized = !CGSizeEqualToSize(self.collection.bounds.size, frame.size);
     self.collection.frame = frame;
     self.returnButton.frame = CGRectMake(MAX(8,w-150), MAX(0,h-safe.bottom-54), 138, 44);
-    self.doneButton.frame = CGRectMake(8, MAX(0,h-safe.bottom-54), 108, 44);
     if (resized) [self.collection.collectionViewLayout invalidateLayout];
 }
 - (void)applyMode {
@@ -533,7 +518,6 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     }
 }
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
-    if (self.reorderMode) return;
     LGEntry *entry = self.filtered[indexPath.item];
     NSUserDefaults *groupDefaults = LGAppGroupDefaults();
     if (entry.hidden && [groupDefaults boolForKey:@"LCStrictHiding"]) {
@@ -649,21 +633,61 @@ static UIImage *LGFastIcon(LGEntry *entry) {
 
 #pragma mark - Long-press actions (hide / uninstall / reorder)
 
-- (void)menuGestureChanged:(UILongPressGestureRecognizer *)gesture {
-    if (gesture.state != UIGestureRecognizerStateBegan || self.reorderMode) return;
+- (void)handleLongPress:(UILongPressGestureRecognizer *)gesture {
     CGPoint point = [gesture locationInView:self.collection];
-    NSIndexPath *indexPath = [self.collection indexPathForItemAtPoint:point];
-    if (!indexPath || indexPath.item >= (NSInteger)self.filtered.count) return;
-    LGEntry *entry = self.filtered[indexPath.item];
-    UICollectionViewCell *cell = [self.collection cellForItemAtIndexPath:indexPath];
-    [self showActionsForEntry:entry cell:cell];
+    switch (gesture.state) {
+        case UIGestureRecognizerStateBegan: {
+            NSIndexPath *indexPath = [self.collection indexPathForItemAtPoint:point];
+            if (!indexPath || indexPath.item >= (NSInteger)self.filtered.count) return;
+            self.pressIndexPath = indexPath;
+            self.pressEntry = self.filtered[indexPath.item];
+            self.pressStart = point;
+            self.draggingCell = NO;
+            UIImpactFeedbackGenerator *haptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
+            [haptic impactOccurred];
+            break;
+        }
+        case UIGestureRecognizerStateChanged: {
+            if (!self.pressEntry) return;
+            if (!self.draggingCell) {
+                CGFloat dx = point.x - self.pressStart.x;
+                CGFloat dy = point.y - self.pressStart.y;
+                // A small move turns the press into a drag; staying still keeps it a menu.
+                if (self.search.text.length == 0 && sqrt(dx * dx + dy * dy) > 8) {
+                    self.draggingCell = YES;
+                    [self.collection beginInteractiveMovementForItemAtIndexPath:self.pressIndexPath];
+                    UIImpactFeedbackGenerator *haptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
+                    [haptic impactOccurred];
+                }
+            }
+            if (self.draggingCell) [self.collection updateInteractiveMovementTargetPosition:point];
+            break;
+        }
+        case UIGestureRecognizerStateEnded: {
+            if (self.draggingCell) {
+                self.draggingCell = NO;
+                [self.collection endInteractiveMovement];
+                [self saveOrder];
+            } else if (self.pressEntry) {
+                UICollectionViewCell *cell = [self.collection cellForItemAtIndexPath:self.pressIndexPath];
+                [self showActionsForEntry:self.pressEntry cell:cell];
+            }
+            self.pressEntry = nil;
+            break;
+        }
+        default: {
+            if (self.draggingCell) {
+                self.draggingCell = NO;
+                [self.collection cancelInteractiveMovement];
+            }
+            self.pressEntry = nil;
+            break;
+        }
+    }
 }
 - (void)showActionsForEntry:(LGEntry *)entry cell:(UICollectionViewCell *)cell {
     UIAlertController *sheet = [UIAlertController alertControllerWithTitle:entry.name message:nil preferredStyle:UIAlertControllerStyleActionSheet];
     __weak typeof(self) weakSelf = self;
-    [sheet addAction:[UIAlertAction actionWithTitle:@"重新排列" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        [weakSelf enterReorderMode];
-    }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"隐藏" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         [weakSelf hideEntry:entry];
     }]];
@@ -779,30 +803,8 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     [self showAlertTitle:@"已卸载" message:@"应用包已删除。建议完全退出并重新打开 LiveContainer，刷新原生列表。"];
 }
 
-#pragma mark - Reorder mode
+#pragma mark - Reordering
 
-- (void)enterReorderMode {
-    if (self.search.text.length) {
-        self.search.text = @"";
-        [self filter];
-    }
-    self.reorderMode = YES;
-    self.dragGesture.enabled = YES;
-    self.menuGesture.enabled = NO;
-    self.doneButton.hidden = NO;
-    self.search.userInteractionEnabled = NO;
-    [self.collection reloadData];
-    [self showAlertTitle:@"整理模式" message:@"长按图标后拖动排序；点左下角「完成」退出。"];
-}
-- (void)exitReorderMode {
-    self.reorderMode = NO;
-    self.dragGesture.enabled = NO;
-    self.menuGesture.enabled = YES;
-    self.doneButton.hidden = YES;
-    self.search.userInteractionEnabled = YES;
-    [self saveOrder];
-    [self refresh];
-}
 - (void)saveOrder {
     NSArray<NSString *> *folders = [self.filtered valueForKey:@"folder"];
     [[NSUserDefaults standardUserDefaults] setObject:folders forKey:LGOrder];
@@ -817,36 +819,11 @@ static UIImage *LGFastIcon(LGEntry *entry) {
         [group setObject:nativeOrder forKey:@"LCCustomSortOrder"];
     }
 }
-- (void)handleDrag:(UILongPressGestureRecognizer *)gesture {
-    CGPoint point = [gesture locationInView:self.collection];
-    switch (gesture.state) {
-        case UIGestureRecognizerStateBegan: {
-            NSIndexPath *indexPath = [self.collection indexPathForItemAtPoint:point];
-            if (!indexPath) return;
-            self.dragging = YES;
-            [self.collection beginInteractiveMovementForItemAtIndexPath:indexPath];
-            break;
-        }
-        case UIGestureRecognizerStateChanged:
-            if (self.dragging) [self.collection updateInteractiveMovementTargetPosition:point];
-            break;
-        case UIGestureRecognizerStateEnded:
-            if (!self.dragging) return;
-            self.dragging = NO;
-            [self.collection endInteractiveMovement];
-            break;
-        default:
-            if (!self.dragging) return;
-            self.dragging = NO;
-            [self.collection cancelInteractiveMovement];
-            break;
-    }
-}
 - (BOOL)collectionView:(UICollectionView *)collectionView canMoveItemAtIndexPath:(NSIndexPath *)indexPath {
-    return self.reorderMode;
+    return self.search.text.length == 0;
 }
 - (void)collectionView:(UICollectionView *)collectionView moveItemAtIndexPath:(NSIndexPath *)sourceIndexPath toIndexPath:(NSIndexPath *)destinationIndexPath {
-    if (!self.reorderMode) return;
+    if (self.search.text.length) return;
     NSMutableArray<LGEntry *> *items = [self.filtered mutableCopy];
     if ((NSUInteger)sourceIndexPath.item >= items.count) return;
     LGEntry *entry = items[sourceIndexPath.item];
@@ -856,7 +833,6 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     self.filtered = items;
     [self saveOrder];
 }
-
 
 #pragma mark - Hidden apps unlock
 

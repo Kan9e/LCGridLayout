@@ -2,7 +2,7 @@
 
 适用：LiveContainer **3.8.0 及以上**（含 3.8.2 / 3.8.11 等 nightly），越狱无关的 JIT-Less / 侧载环境。
 
-产物：从 [Releases](https://github.com/Kan9e/LCGridLayout/releases) 下载 `LCGridLayout_v15.dylib`，SHA-256 `2f5e85dfb8c84a3ac4b5aea0e383eb65db58d31e3e08faa30d1469d087fd2f86`。
+产物：从 [Releases](https://github.com/Kan9e/LCGridLayout/releases) 下载 `LCGridLayout_v16.dylib`，SHA-256 `76fff07f3bc166c14728cb167afe0dff26121ce8e48144b35a1bee58234bab76`。
 
 ---
 
@@ -16,7 +16,7 @@
 ## 二、安装（4 步）
 
 1. **导入 dylib**
-   LiveContainer → **Tweaks** 标签 → 停在全局根目录（不要进某个应用专用子文件夹）→ 右上角 “Import Tweak” → 选带版本号的文件，例如 `LCGridLayout_v15.dylib`。**先删掉设备上旧的 `LCGridLayout*`**，多个副本会被同时加载。
+   LiveContainer → **Tweaks** 标签 → 停在全局根目录（不要进某个应用专用子文件夹）→ 右上角 “Import Tweak” → 选带版本号的文件，例如 `LCGridLayout_v16.dylib`。**先删掉设备上旧的 `LCGridLayout*`**，多个副本会被同时加载。
 
 2. **重签**
    停在 Tweaks 页 → 点签名按钮（`signature` 图标，文案是 “Sign”）。ad hoc 签名在设备上过不了校验，这一步必须做。
@@ -31,10 +31,11 @@
 ## 三、怎么用
 
 - **网格 / 原生列表切换**：网格顶部左侧 “恢复原生”（带回退图标）回到原列表；原列表右下角 “返回网格” 再切回来。原列表里添加、管理、容器选择、隐藏应用解锁全部照旧。
-- **长按图标**：从底部弹出操作菜单
-  - **重新排列**：进入整理模式，长按图标拖动排序，点左下角「完成」保存退出
-  - **隐藏**：写入应用元数据后从网格消失；建议重启 LiveContainer 让原生列表同步
-  - **卸载**（仅非共享应用）：确认后删除应用包，并询问是否同时删除数据容器；不可撤销
+- **长按图标**（0.5 秒，带触感）：
+  - 按住后移动：直接拖动排序，松手即保存
+  - 按住后不动、松手：从底部弹出菜单
+    - **隐藏**：写入应用元数据后从网格消失；建议重启 LiveContainer 让原生列表同步
+    - **卸载**（仅非共享应用）：确认后删除应用包，并询问是否同时删除数据容器；不可撤销
 - **解锁隐藏应用**：网格底部“共 N 个 App”连点 3 次 → 系统面容/密码认证 → 隐藏应用显示在末尾；重启 LiveContainer 自动上锁
 - **网格设置**：顶部右侧 “网格设置” → 4/5 列、显示/隐藏应用名称、顶部间距（紧凑/宽松）、选择/更换/移除背景、导出调试日志、恢复原生列表。设置存 `NSUserDefaults`，冷启动保留。
 - **自定义背景**：“网格设置 → 选择背景图片” → 系统相册选一张图 → 自动裁切填充并叠 35% 黑遮罩。图片存在 `Library/Application Support/LCGridLayout/background.jpg`（最长边压到 2200px），重启、切标签都保留；移除在 “网格设置 → 移除背景”。不需要相册权限，也不会把图片写进 LiveContainer 的应用目录。
