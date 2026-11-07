@@ -2,7 +2,7 @@
 
 适用：LiveContainer **3.8.0 及以上**（含 3.8.2 / 3.8.11 等 nightly），越狱无关的 JIT-Less / 侧载环境。
 
-产物：从 [Releases](https://github.com/Kan9e/LCGridLayout/releases) 下载 `LCGridLayout_v17.dylib`，SHA-256 `6e98aeb63028e8e17cb59b9aa0df9389aaaf33afdb4214b55ef8b043e04d5d1f`。
+产物：从 [Releases](https://github.com/Kan9e/LCGridLayout/releases) 下载 `LCGridLayout_v18.dylib`，SHA-256 `e5c6f0d1ead4cdf0057bb159fd49ff3d08e9f5ed82ecc2e6fcfaffcdf7d0304f`。
 
 ---
 
@@ -16,7 +16,7 @@
 ## 二、安装（4 步）
 
 1. **导入 dylib**
-   LiveContainer → **Tweaks** 标签 → 停在全局根目录（不要进某个应用专用子文件夹）→ 右上角 “Import Tweak” → 选带版本号的文件，例如 `LCGridLayout_v17.dylib`。**先删掉设备上旧的 `LCGridLayout*`**，多个副本会被同时加载。
+   LiveContainer → **Tweaks** 标签 → 停在全局根目录（不要进某个应用专用子文件夹）→ 右上角 “Import Tweak” → 选带版本号的文件，例如 `LCGridLayout_v18.dylib`。**先删掉设备上旧的 `LCGridLayout*`**，多个副本会被同时加载。
 
 2. **重签**
    停在 Tweaks 页 → 点签名按钮（`signature` 图标，文案是 “Sign”）。ad hoc 签名在设备上过不了校验，这一步必须做。
@@ -33,7 +33,7 @@
 - **网格 / 原生列表切换**：网格顶部左侧 “恢复原生”（带回退图标）回到原列表；原列表右下角 “返回网格” 再切回来。原列表里添加、管理、容器选择、隐藏应用解锁全部照旧。
 - **长按图标**（0.5 秒，带触感）：
   - 按住后移动：直接拖动排序，松手即保存
-  - 按住后保持不动约 0.45 秒：不用松手，菜单自动从底部弹出；长按后快速松手也会弹出
+  - 按住后保持不动约 0.35 秒：不用松手，菜单自动从底部弹出；长按后快速松手也会弹出
     - **隐藏**：写入应用元数据后从网格消失；建议重启 LiveContainer 让原生列表同步
     - **卸载**（仅非共享应用）：确认后删除应用包，并询问是否同时删除数据容器；不可撤销
 - **解锁隐藏应用**：网格底部“共 N 个 App”连点 3 次 → 系统面容/密码认证 → 隐藏应用显示在末尾；重启 LiveContainer 自动上锁

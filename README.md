@@ -10,7 +10,7 @@
 - 搜索应用、下拉刷新
 - **长按图标**（0.5 秒，带触感）：
   - 按住后**移动** → 直接拖动排序，松手保存；顺序会持久化，原生列表若已选自定义排序也会同步
-  - 按住后**保持不动约 0.45 秒** → 不用松手，菜单就会弹出（隐藏 / 卸载）
+  - 按住后**保持不动约 0.35 秒** → 不用松手，菜单就会弹出（隐藏 / 卸载）
   - 长按后**很快松手** → 同样弹出菜单
 - **底部计数条**：显示“共 N 个 App”；连续点 3 次（与原生一致）并通过面容/密码认证后，隐藏应用会出现在网格末尾，重启 LiveContainer 自动上锁
 - 加锁应用显示锁标，点按后仍由 LiveContainer 弹原生解锁
@@ -27,7 +27,7 @@
 
 ## 安装（摘要）
 
-1. LiveContainer → **Tweaks** → 全局根目录 → **Import Tweak** 导入 `LCGridLayout_v17.dylib`
+1. LiveContainer → **Tweaks** → 全局根目录 → **Import Tweak** 导入 `LCGridLayout_v18.dylib`
 2. 点 Tweaks 页的签名按钮，用当前证书重签
 3. Settings 底部连点版本号 5 次 → Developer Settings → 打开 **Load Tweaks to LiveContainer Itself**
 4. 完全退出 LiveContainer，重新打开
@@ -92,6 +92,7 @@ Host gate passed: LiveContainer 3.8.11 (>= 3.8.0); LCGridLayout_v10.dylib loaded
 
 ## 变更记录
 
+- **v18**：长按后弹菜单的等待时间从 0.45 秒缩短到 0.35 秒
 - **v17**：长按后保持不动约 0.45 秒即弹出菜单，不再等松手；期间移动仍然直接拖动
 - **v16**：长按逻辑对齐 iOS 桌面——按住移动即拖动、松手不动才弹菜单；移除整理模式和「重新排列」菜单项，交互只剩一条手势
 - **v15**：长按菜单改为自绘 action sheet，彻底去掉 iOS 26 在来源格子上画的半透明底板；底部计数条上移 14pt，并只显示“共 N 个 App”

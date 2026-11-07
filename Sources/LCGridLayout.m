@@ -653,7 +653,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
             // Keep holding still: the menu shows without waiting for the finger to lift.
             NSInteger token = ++self.menuToken;
             __weak typeof(self) weakSelf = self;
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.45 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                 if (!weakSelf || weakSelf.menuToken != token || weakSelf.moved || weakSelf.menuShown || !weakSelf.pressEntry) return;
                 weakSelf.menuShown = YES;
                 UICollectionViewCell *cell = [weakSelf.collection cellForItemAtIndexPath:weakSelf.pressIndexPath];
