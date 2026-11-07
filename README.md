@@ -27,7 +27,7 @@
 
 ## 安装（摘要）
 
-1. LiveContainer → **Tweaks** → 全局根目录 → **Import Tweak** 导入 `LCGridLayout_v19.dylib`
+1. LiveContainer → **Tweaks** → 全局根目录 → **Import Tweak** 导入 `LCGridLayout_v20.dylib`
 2. 点 Tweaks 页的签名按钮，用当前证书重签
 3. Settings 底部连点版本号 5 次 → Developer Settings → 打开 **Load Tweaks to LiveContainer Itself**
 4. 完全退出 LiveContainer，重新打开
@@ -88,10 +88,11 @@ Host gate passed: LiveContainer 3.8.11 (>= 3.8.0); LCGridLayout_v10.dylib loaded
 - 卸载不会清理钥匙串里的旧条目（原生卸载会，我们无法调用该 Swift 接口）
 - 卸载只对非共享应用开放；共享应用请在原生列表操作
 - 多任务里正在运行的应用不建议卸载，先关闭再操作
-- 如果 LiveContainer 开启了「严格隐藏」（LCStrictHiding），隐藏应用需要先在原生列表解锁，否则从网格启动会被系统忽略；插件会给出提示
+- 要从网格启动隐藏应用，需要关闭 LiveContainer 的「严格隐藏」：该模式下 LC 的 URL 启动不会查找隐藏列表（原生列表能启动，是因为它直接调用内存模型，插件调不到）。关闭后 LC 仍会用 Face ID 保护隐藏应用
 
 ## 变更记录
 
+- **v20**：隐藏操作改为静默生效（不再弹“已隐藏”提示）；移除严格隐藏下的拦截弹窗，改由 LiveContainer 自行处理
 - **v19**：长按识别阈值从 0.5 秒降到 0.3 秒（按住等待仍为 0.35 秒，菜单约 0.65 秒出现）
 - **v18**：长按后弹菜单的等待时间从 0.45 秒缩短到 0.35 秒
 - **v17**：长按后保持不动约 0.45 秒即弹出菜单，不再等松手；期间移动仍然直接拖动

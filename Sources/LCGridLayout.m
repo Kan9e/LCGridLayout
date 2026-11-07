@@ -522,11 +522,6 @@ static UIImage *LGFastIcon(LGEntry *entry) {
 }
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     LGEntry *entry = self.filtered[indexPath.item];
-    NSUserDefaults *groupDefaults = LGAppGroupDefaults();
-    if (entry.hidden && [groupDefaults boolForKey:@"LCStrictHiding"]) {
-        [self showAlertTitle:@"隐藏应用未解锁" message:@"LiveContainer 开启了严格隐藏，请先在原生列表完成解锁再从网格启动。"];
-        return;
-    }
     if (LGEntryStateFor(entry.url) != LGEntryStateOK) { [self refresh]; return; }
     NSString *scheme = LGGet(NSClassFromString(@"LCUtils"), @"appUrlScheme");
     if (![scheme isKindOfClass:NSString.class] || scheme.length == 0) {
@@ -754,7 +749,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
         return;
     }
     [self refresh];
-    [self showAlertTitle:@"已隐藏" message:@"已从网格中隐藏。建议完全退出并重新打开 LiveContainer，让原生列表同步。"];
+    LGLog(@"Hid an app via LCAppInfo.plist");
 }
 
 - (NSArray<NSString *> *)containerFoldersForEntry:(LGEntry *)entry {

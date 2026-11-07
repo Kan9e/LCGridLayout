@@ -2,7 +2,7 @@
 
 适用：LiveContainer **3.8.0 及以上**（含 3.8.2 / 3.8.11 等 nightly），越狱无关的 JIT-Less / 侧载环境。
 
-产物：从 [Releases](https://github.com/Kan9e/LCGridLayout/releases) 下载 `LCGridLayout_v19.dylib`，SHA-256 `20834ee5633843c435aabbbbbf3c592aa6989ee7a010b9ee031467ec870ea2c0`。
+产物：从 [Releases](https://github.com/Kan9e/LCGridLayout/releases) 下载 `LCGridLayout_v20.dylib`，SHA-256 `15b8de1ffdb32b3a599597b5ce65c200d81050c850ba8c25a83e74fd618aeb61`。
 
 ---
 
@@ -16,7 +16,7 @@
 ## 二、安装（4 步）
 
 1. **导入 dylib**
-   LiveContainer → **Tweaks** 标签 → 停在全局根目录（不要进某个应用专用子文件夹）→ 右上角 “Import Tweak” → 选带版本号的文件，例如 `LCGridLayout_v19.dylib`。**先删掉设备上旧的 `LCGridLayout*`**，多个副本会被同时加载。
+   LiveContainer → **Tweaks** 标签 → 停在全局根目录（不要进某个应用专用子文件夹）→ 右上角 “Import Tweak” → 选带版本号的文件，例如 `LCGridLayout_v20.dylib`。**先删掉设备上旧的 `LCGridLayout*`**，多个副本会被同时加载。
 
 2. **重签**
    停在 Tweaks 页 → 点签名按钮（`signature` 图标，文案是 “Sign”）。ad hoc 签名在设备上过不了校验，这一步必须做。
@@ -34,7 +34,7 @@
 - **长按图标**（0.3 秒，带触感）：
   - 按住后移动：直接拖动排序，松手即保存
   - 按住后保持不动约 0.35 秒：不用松手，菜单自动从底部弹出；长按后快速松手也会弹出
-    - **隐藏**：写入应用元数据后从网格消失；建议重启 LiveContainer 让原生列表同步
+    - **隐藏**：写入应用元数据后从网格消失（静默，无弹窗）；建议重启 LiveContainer 让原生列表同步
     - **卸载**（仅非共享应用）：确认后删除应用包，并询问是否同时删除数据容器；不可撤销
 - **解锁隐藏应用**：网格底部“共 N 个 App”连点 3 次 → 系统面容/密码认证 → 隐藏应用显示在末尾；重启 LiveContainer 自动上锁
 - **网格设置**：顶部右侧 “网格设置” → 4/5 列、显示/隐藏应用名称、顶部间距（紧凑/宽松）、选择/更换/移除背景、导出调试日志、恢复原生列表。设置存 `NSUserDefaults`，冷启动保留。
@@ -62,7 +62,7 @@
 | 选了背景但没变化 | `Background image updated` 缺失 | 看是否有 “背景图片保存失败” 提示；确认设备剩余空间，或换一张普通 JPEG/PNG（HEIC 也可，会转成 JPEG） |
 | 隐藏/卸载后原生列表还显示 | — | 预期行为：直接改文件不会刷新 LiveContainer 内存模型，完全退出重开即可 |
 | 卸载项看不到 | — | 共享应用不提供卸载，请在原生列表操作 |
-| 解锁后点隐藏应用没反应 | — | LiveContainer 开了「严格隐藏」时，需要先在原生列表解锁 |
+| 解锁后点隐藏应用没反应 | — | LC 的「严格隐藏」开启时，URL 启动不查隐藏列表；在 LC 设置里关闭「严格隐藏」，或从原生列表启动 |
 | 网格少显示某个应用 | `Loaded N app(s); skipped hidden=… ambiguous=… damaged=…` | 点“网格设置”看计数：隐藏=隐藏应用；冲突=本地/共享同名文件夹被有意排除；异常=plist 损坏。原生列表能看到但网格没有，把这一行发我 |
 | 出现 `Mounted on native app-list hosting controller` 但看不到网格 | — | 检查是否之前点了“原生列表”被持久化：找右下角 “返回网格” 按钮 |
 | 图标全是系统占位图 | `Host icon provider failed` | 宿主图标接口异常，功能不受影响；记录 iOS 版本 |
