@@ -309,6 +309,7 @@ static void LGCollectSearchFields(UIView *view, UIView *skip, NSMutableArray<NSV
 @property(nonatomic) CGFloat lastTopInset;
 @property(nonatomic) UIEdgeInsets lastSafeInsets;
 @property(nonatomic, strong) NSMutableSet<NSString *> *pendingIcons;
+@property(nonatomic, strong) id nativeSearchObserver;
 - (CGFloat)lgTopInset;
 - (void)lgSyncLayout;
 - (void)refresh;
@@ -397,6 +398,12 @@ static void LGCollectSearchFields(UIView *view, UIView *skip, NSMutableArray<NSV
     footerTap.numberOfTapsRequired = 3;
     [self.footer addGestureRecognizer:footerTap];
     [self.panel addSubview:self.footer];
+    // LiveContainer may show its own search field at the top. Mirror its text into
+    // our filter so typing there actually filters the grid (the native list is hidden).
+    __weak typeof(self) weakSelf = self;
+    self.nativeSearchObserver = [NSNotificationCenter.defaultCenter addObserverForName:UITextFieldTextDidChangeNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+        [weakSelf mirrorNativeSearchText:note.object];
+    }];
     self.nativeMode = [NSUserDefaults.standardUserDefaults boolForKey:LGNative];
     [self applyMode];
     [self loadBackground];
@@ -917,12 +924,26 @@ static void LGCollectSearchFields(UIView *view, UIView *skip, NSMutableArray<NSV
         });
     }];
 }
+- (void)dealloc {
+    if (self.nativeSearchObserver) [NSNotificationCenter.defaultCenter removeObserver:self.nativeSearchObserver];
+}
 - (void)setHiddenUnlocked:(BOOL)unlocked {
     _hiddenUnlocked = unlocked;
     [self refresh];
     LGLog(@"Hidden apps unlocked for this session");
 }
 
+- (void)mirrorNativeSearchText:(id)object {
+    if (![object isKindOfClass:UITextField.class] || self.nativeMode) return;
+    UITextField *field = (UITextField *)object;
+    if ([field isDescendantOfView:self.view]) return;  // our own search bar
+    if (![NSStringFromClass(field.class) containsString:@"Search"]) return;
+    if (!self.search.hidden) return;                   // native field is not the visible one
+    NSString *text = field.text ?: @"";
+    if ([self.search.text isEqualToString:text]) return;
+    self.search.text = text;
+    [self filter];
+}
 - (void)showSettings {
     if (self.presentedViewController) return;
     UIAlertController *sheet = [UIAlertController alertControllerWithTitle:[LGLoadedName() stringByDeletingPathExtension]

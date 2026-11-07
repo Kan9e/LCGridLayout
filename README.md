@@ -27,7 +27,7 @@
 
 ## 安装（摘要）
 
-1. LiveContainer → **Tweaks** → 全局根目录 → **Import Tweak** 导入 `LCGridLayout_v23.dylib`
+1. LiveContainer → **Tweaks** → 全局根目录 → **Import Tweak** 导入 `LCGridLayout_v24.dylib`
 2. 点 Tweaks 页的签名按钮，用当前证书重签
 3. Settings 底部连点版本号 5 次 → Developer Settings → 打开 **Load Tweaks to LiveContainer Itself**
 4. 完全退出 LiveContainer，重新打开
@@ -92,6 +92,7 @@ Host gate passed: LiveContainer 3.8.11 (>= 3.8.0); LCGridLayout_v10.dylib loaded
 
 ## 变更记录
 
+- **v24**：把 LiveContainer 顶部原生搜索框的输入镜像到网格过滤——原生搜索框可见时，在它里面打字直接筛网格；不再是一个“只能过滤被盖住的列表”的死输入框
 - **v23**：自动识别 LiveContainer 顶部是否有原生搜索框；有则隐藏网格自己的搜索栏、工具条让到原生搜索框下方，避免两套搜索叠加
 - **v22**：修复解锁隐藏应用后点击无反应——点击守卫把 `isHidden` 状态误判成“不可启动”，直接 return 了
 - **v21**：解锁隐藏应用后不再弹提示；长按菜单在 iPhone 上固定从底部弹出，不再随图标位置被 iOS 26 渲染成顶部气泡
