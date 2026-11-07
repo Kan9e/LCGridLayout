@@ -239,6 +239,8 @@ static UIImage *LGFastIcon(LGEntry *entry) {
         [self.contentView addSubview:_icon];
         [self.contentView addSubview:_lock];
         [self.contentView addSubview:_label];
+        self.backgroundColor = UIColor.clearColor;
+        self.contentView.backgroundColor = UIColor.clearColor;
         self.isAccessibilityElement = YES;
         self.accessibilityTraits = UIAccessibilityTraitButton;
     }
@@ -377,7 +379,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     self.dragGesture.enabled = NO;
     [self.collection addGestureRecognizer:self.dragGesture];
     self.footer = [UILabel new];
-    self.footer.font = [UIFont systemFontOfSize:13];
+    self.footer.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     self.footer.textColor = UIColor.secondaryLabelColor;
     self.footer.textAlignment = NSTextAlignmentCenter;
     self.footer.userInteractionEnabled = YES;
@@ -427,7 +429,7 @@ static UIImage *LGFastIcon(LGEntry *entry) {
     self.dimView.frame = self.panel.bounds;
     self.bar.frame = CGRectMake(16, top, MAX(0,w-32), 40);
     self.search.frame = CGRectMake(4, top+40, MAX(0,w-8), 48);
-    CGFloat footerHeight = 22;
+    CGFloat footerHeight = MAX(24, self.footer.font.lineHeight + 2);
     self.footer.frame = CGRectMake(0, MAX(0, h-safe.bottom-footerHeight-2), w, footerHeight);
     CGRect frame = CGRectMake(0, top+88, w, MAX(0, h-top-88-safe.bottom-footerHeight-4));
     BOOL resized = !CGSizeEqualToSize(self.collection.bounds.size, frame.size);
@@ -653,6 +655,17 @@ static UIImage *LGFastIcon(LGEntry *entry) {
         return [self menuForEntry:entry];
     }];
 }
+// UIKit snapshots the cell as a "highlighting" preview by default; that shows up
+// as a translucent rounded rectangle under the icon while the menu is open.
+- (UITargetedPreview *)collectionView:(UICollectionView *)collectionView
+        previewForHighlightingContextMenuWithConfiguration:(UIContextMenuConfiguration *)configuration {
+    return nil;
+}
+- (UITargetedPreview *)collectionView:(UICollectionView *)collectionView
+        previewForDismissingContextMenuWithConfiguration:(UIContextMenuConfiguration *)configuration {
+    return nil;
+}
+
 - (UIMenu *)menuForEntry:(LGEntry *)entry {
     __weak typeof(self) weakSelf = self;
     UIAction *reorder = [UIAction actionWithTitle:@"重新排列" image:[UIImage systemImageNamed:@"arrow.up.arrow.down"] identifier:nil handler:^(UIAction *action) {

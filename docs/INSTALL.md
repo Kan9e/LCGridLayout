@@ -2,7 +2,7 @@
 
 适用：LiveContainer **3.8.0 及以上**（含 3.8.2 / 3.8.11 等 nightly），越狱无关的 JIT-Less / 侧载环境。
 
-产物：从 [Releases](https://github.com/Kan9e/LCGridLayout/releases) 下载 `LCGridLayout_v13.dylib`，SHA-256 `61ec6af9efd61959815af88f9b16992a64982b0bcf817a089671bfefe680ea90`。
+产物：从 [Releases](https://github.com/Kan9e/LCGridLayout/releases) 下载 `LCGridLayout_v14.dylib`，SHA-256 `535e7d029517a3db0df7fd6ac713d443b471997830a30856740df9360bbb6ce5`。
 
 ---
 
@@ -16,7 +16,7 @@
 ## 二、安装（4 步）
 
 1. **导入 dylib**
-   LiveContainer → **Tweaks** 标签 → 停在全局根目录（不要进某个应用专用子文件夹）→ 右上角 “Import Tweak” → 选带版本号的文件，例如 `LCGridLayout_v13.dylib`。**先删掉设备上旧的 `LCGridLayout*`**，多个副本会被同时加载。
+   LiveContainer → **Tweaks** 标签 → 停在全局根目录（不要进某个应用专用子文件夹）→ 右上角 “Import Tweak” → 选带版本号的文件，例如 `LCGridLayout_v14.dylib`。**先删掉设备上旧的 `LCGridLayout*`**，多个副本会被同时加载。
 
 2. **重签**
    停在 Tweaks 页 → 点签名按钮（`signature` 图标，文案是 “Sign”）。ad hoc 签名在设备上过不了校验，这一步必须做。

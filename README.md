@@ -25,7 +25,7 @@
 
 ## 安装（摘要）
 
-1. LiveContainer → **Tweaks** → 全局根目录 → **Import Tweak** 导入 `LCGridLayout_v13.dylib`
+1. LiveContainer → **Tweaks** → 全局根目录 → **Import Tweak** 导入 `LCGridLayout_v14.dylib`
 2. 点 Tweaks 页的签名按钮，用当前证书重签
 3. Settings 底部连点版本号 5 次 → Developer Settings → 打开 **Load Tweaks to LiveContainer Itself**
 4. 完全退出 LiveContainer，重新打开
@@ -90,6 +90,7 @@ Host gate passed: LiveContainer 3.8.11 (>= 3.8.0); LCGridLayout_v10.dylib loaded
 
 ## 变更记录
 
+- **v14**：底部计数字号改为系统 body（与原生列表一致）；长按菜单不再显示 UIKit 默认的“来源预览”——之前那个半透明圆角块就是它
 - **v13**：隐藏应用解锁的点击次数改为 3 次，与原生列表一致
 - **v12**：新增底部「共 N 个 App」计数条，点按走系统认证解锁隐藏应用；隐藏应用出现在网格末尾并计入数量
 - **v11**：新增长按菜单（重新排列 / 隐藏 / 卸载）；整理模式拖动排序并持久化；卸载带双重确认、可选删除数据容器；隐藏写入 LCAppInfo.plist
